@@ -73,6 +73,13 @@ if(WIN32)
 	target_sources(CemuUtil PRIVATE Fiber/FiberWin.cpp)
 	target_sources(CemuUtil PRIVATE MemMapper/MemMapperWin.cpp)
 	target_sources(CemuUtil PRIVATE SystemInfo/SystemInfoWin.cpp)
+elseif(NINTENDO_SWITCH)
+	target_sources(CemuUtil PRIVATE
+		Fiber/FiberSwitch.cpp
+		Fiber/FiberContextSwitch.S
+		MemMapper/MemMapperSwitch.cpp
+		SystemInfo/SystemInfoSwitch.cpp
+	)
 elseif(UNIX)
 	target_sources(CemuUtil PRIVATE Fiber/FiberUnix.cpp)
 	target_sources(CemuUtil PRIVATE MemMapper/MemMapperUnix.cpp)

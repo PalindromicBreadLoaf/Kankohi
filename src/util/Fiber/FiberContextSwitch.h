@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 PalindromicBreadLoaf
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 #define FIBER_FRAME_X19 0x00
@@ -9,7 +12,7 @@
 #ifndef __ASSEMBLER__
 extern "C"
 {
-	// Saves the callee-saved state on the current stack, stores the stack pointer to *saveSp, and
+	// Saves the callee-saved state on the current stack, stores the stack pointer to *saveSp and
 	// resumes the context at loadSp.
 	void HorizonFiber_Switch(void** saveSp, void* loadSp);
 	// See above but without FPCR

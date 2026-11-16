@@ -178,6 +178,10 @@ bool memory_isAddressRangeAccessible(MPTR virtualAddress, uint32 size);
 #define CPU_swapEndianU64(_v) _byteswap_uint64((uint64)(_v))
 #define CPU_swapEndianU32(_v) _byteswap_ulong((uint32)(_v))
 #define CPU_swapEndianU16(_v) _byteswap_ushort((uint16)(_v))
+#elif defined(__SWITCH__)
+#define CPU_swapEndianU64(_v) __builtin_bswap64((uint64)(_v))
+#define CPU_swapEndianU32(_v) __builtin_bswap32((uint32)(_v))
+#define CPU_swapEndianU16(_v) __builtin_bswap16((uint16)(_v))
 #elif BOOST_OS_LINUX
 #define CPU_swapEndianU64(_v) bswap_64((uint64)(_v))
 #define CPU_swapEndianU32(_v) bswap_32((uint32)(_v))

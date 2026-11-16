@@ -87,6 +87,29 @@ if(MSVC)
 	endif()
 endif()
 
+if(NINTENDO_SWITCH)
+	set(HORIZON_SOURCES
+		Common/switch/HorizonDiagnostics.cpp
+		Common/switch/HorizonException.cpp
+		Common/switch/HorizonExceptionEntry.S
+		Common/switch/HorizonLibcShims.cpp
+		Common/switch/HorizonMalloc.c
+		Common/switch/HorizonMemory.cpp
+	)
+	target_sources(CemuBin PRIVATE
+		${HORIZON_SOURCES}
+		switch/MainSwitch.cpp
+		switch/WindowSystemSwitch.cpp
+	)
+	set_source_files_properties(${HORIZON_SOURCES} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+	set_source_files_properties(Common/switch/HorizonMalloc.c PROPERTIES
+		INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/dependencies/dlmalloc")
+	target_link_options(CemuBin PRIVATE -Wl,--wrap=pthread_create -Wl,--wrap=pthread_join)
+	if(ENABLE_NXVK)
+		target_link_libraries(CemuBin PRIVATE nxvk::nxvk)
+	endif()
+endif()
+
 if(MSVC AND MSVC_VERSION EQUAL 1940)
 	# workaround for an msvc issue on VS 17.10 where generated ILK files are too large
 	# see https://developercommunity.visualstudio.com/t/After-updating-to-VS-1710-the-size-of-/10665511
@@ -149,7 +172,7 @@ if (MACOS_BUNDLE)
 			message(FATAL_ERROR "failed to find libMoltenVK.dylib")
 		endif ()
   endif()
-  
+
 	if (ENABLE_LIBUSB)
 		if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 		    set(LIBUSB_PATH "${CMAKE_BINARY_DIR}/vcpkg_installed/${VCPKG_TARGET_TRIPLET}/debug/lib/libusb-1.0.0.dylib")
@@ -163,7 +186,7 @@ if (MACOS_BUNDLE)
 
 	if (ENABLE_VULKAN)
 		add_custom_command(TARGET CemuBin POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy 
+			COMMAND ${CMAKE_COMMAND} -E copy
 				"${MOLTENVK_PATH}"
 				"${FRAMEWORKS_DIR}/libMoltenVK.dylib"
 		)
@@ -217,6 +240,27 @@ set_target_properties(CemuBin PROPERTIES
 	RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../bin/$<1:>"
 	OUTPUT_NAME "${OUTPUT_NAME}"
 )
+
+if(NINTENDO_SWITCH)
+	set_target_properties(CemuBin PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+		OUTPUT_NAME "kankohi"
+	)
+	find_program(SWITCH_READELF aarch64-none-elf-readelf HINTS "${DEVKITPRO}/devkitA64/bin" REQUIRED)
+	add_custom_command(TARGET CemuBin PRE_LINK
+		COMMAND "${CMAKE_COMMAND}" -DELF=$<TARGET_FILE:CemuBin> -DARCHIVE_DIR=${CMAKE_SOURCE_DIR}/build/elf-archive
+			-DREADELF=${SWITCH_READELF} -P "${CMAKE_SOURCE_DIR}/cmake/SwitchArchiveElf.cmake"
+		VERBATIM)
+	nx_generate_nacp(OUTPUT kankohi.nacp
+		NAME "Kankohi"
+		AUTHOR "Cemu Contributors & PalindromicBreadLoaf"
+		VERSION "${EMULATOR_VERSION_MAJOR}.${EMULATOR_VERSION_MINOR}.${EMULATOR_VERSION_PATCH}"
+	)
+	nx_create_nro(CemuBin
+		OUTPUT "${CMAKE_BINARY_DIR}/kankohi.nro"
+		NACP "${CMAKE_CURRENT_BINARY_DIR}/kankohi.nacp"
+	)
+endif()
 
 if(ENABLE_SDL)
 	target_link_libraries(CemuBin PRIVATE SDL3::SDL3)

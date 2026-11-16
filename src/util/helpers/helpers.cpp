@@ -1,7 +1,7 @@
 #include "helpers.h"
 
-#include <algorithm> 
-#include <functional> 
+#include <algorithm>
+#include <functional>
 #include <cctype>
 #include <random>
 
@@ -159,7 +159,7 @@ std::pair<DWORD, DWORD> GetWindowsVersion()
 {
 	using RtlGetVersion_t = LONG(*)(POSVERSIONINFOEXW);
 	static RtlGetVersion_t pRtlGetVersion = nullptr;
-	if(!pRtlGetVersion) 
+	if(!pRtlGetVersion)
 		pRtlGetVersion = (RtlGetVersion_t)GetProcAddress(GetModuleHandleA("ntdll.dll"), "RtlGetVersion");
 	cemu_assert(pRtlGetVersion);
 
@@ -184,13 +184,13 @@ bool IsWindows10OrGreater()
 fs::path GetParentProcess()
 {
 	fs::path result;
-	
+
 #if BOOST_OS_WINDOWS
 	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if(hSnapshot != INVALID_HANDLE_VALUE)
 	{
 		DWORD pid = GetCurrentProcessId();
-		
+
 		PROCESSENTRY32 pe{};
 		pe.dwSize = sizeof(pe);
 		for(BOOL ret = Process32First(hSnapshot, &pe); ret; ret = Process32Next(hSnapshot, &pe))
@@ -204,13 +204,13 @@ fs::path GetParentProcess()
 					DWORD size = std::size(tmp);
 					if (QueryFullProcessImageNameW(hProcess, 0, tmp, &size) && size > 0)
 						result = tmp;
-					
+
 					CloseHandle(hProcess);
 				}
 				break;
 			}
 		}
-		
+
 		CloseHandle(hSnapshot);
 	}
 #else
@@ -239,7 +239,7 @@ uint32_t GetPhysicalCoreCount()
 	static uint32_t s_core_count = 0;
 	if (s_core_count != 0)
 		return s_core_count;
-	
+
 #if BOOST_OS_WINDOWS
 	auto core_count = std::thread::hardware_concurrency();
 
@@ -290,13 +290,13 @@ bool TestWriteAccess(const fs::path& p)
 		std::ofstream file(filename);
 		if (!file.is_open()) // file couldn't be created
 			break;
-		
+
 		file.close();
 
 		fs::remove(filename, ec);
 		return true;
 	}
-	
+
 	return false;
 }
 
@@ -419,7 +419,7 @@ std::string GenerateRandomString(const size_t length, const std::string_view cha
 
 	std::random_device rd;
 	std::mt19937 gen(rd());
-     
+
         // workaround for static asserts using boost
         boost::random::uniform_int_distribution<decltype(characters.size())> index_dist(0, characters.size() - 1);
 	std::generate_n(

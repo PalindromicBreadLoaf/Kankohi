@@ -96,7 +96,7 @@ void coreinitExport_MCP_TitleListByAppType(PPCInterpreter_t* hCPU)
 	__depr__IOS_Ioctlv(IOS_DEVICE_MCP, IOSU_MCP_REQUEST_CEMU, 1, 1, mcpBufferVector);
 
 	*countOutput = mcpRequest->titleListRequest.titleCount;
-			
+
 	osLib_returnFromFunction(hCPU, 0);
 }
 
@@ -464,7 +464,7 @@ namespace coreinit
 
 }
 
-typedef struct  
+typedef struct
 {
 	char settingName[0x40];
 	uint32 ukn1;

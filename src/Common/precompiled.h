@@ -308,7 +308,7 @@ inline uint64 _udiv128(uint64 highDividend, uint64 lowDividend, uint64 divisor, 
     #define DEBUG_BREAK __debugbreak()
 #else
     #include <csignal>
-    #define DEBUG_BREAK raise(SIGTRAP) 
+    #define DEBUG_BREAK raise(SIGTRAP)
 #endif
 
 #if defined(_MSC_VER)

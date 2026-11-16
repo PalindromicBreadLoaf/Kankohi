@@ -1,4 +1,4 @@
-add_library(CemuCommon 
+add_library(CemuCommon
   betype.h
   CafeStaticVar.cpp
   CafeStaticVar.h

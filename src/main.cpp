@@ -44,6 +44,8 @@
 #define _putenv(__s) putenv((char*)(__s))
 #include <sys/types.h>
 #include <sys/sysctl.h>
+#elif defined(__SWITCH__)
+#define _putenv(__s) putenv((char*)(__s))
 #endif
 
 #if BOOST_OS_WINDOWS
@@ -198,7 +200,7 @@ void requireConsole()
     }
     else
     {
-        isConsoleConnected = true; 
+        isConsoleConnected = true;
     }
     #endif
 }
@@ -254,7 +256,7 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-#else
+#elif !defined(__SWITCH__)
 
 int BreathOfTheWildChildProcessMain();
 int main(int argc, char *argv[])

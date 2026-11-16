@@ -152,9 +152,7 @@ option(ENABLE_WXWIDGETS "Build with wxWidgets UI (Currently required)" ON)
 find_package(Threads REQUIRED)
 find_package(CURL REQUIRED)
 find_package(pugixml REQUIRED)
-find_package(RapidJSON REQUIRED)
 find_package(Boost COMPONENTS program_options filesystem nowide REQUIRED)
-find_package(libzip REQUIRED)
 find_package(glslang REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(zstd MODULE REQUIRED) # MODULE so that zstd::zstd is available
@@ -238,6 +236,8 @@ endif()
 
 if (ENABLE_WXWIDGETS)
 	find_package(wxWidgets 3.3 REQUIRED COMPONENTS base core gl propgrid xrc)
+	find_package(RapidJSON REQUIRED)
+	find_package(libzip REQUIRED)
 endif()
 
 if (ENABLE_CUBEB)

@@ -59,6 +59,46 @@ namespace
 	std::mutex s_liveMutex;
 	std::vector<LiveThread> s_liveThreads;
 
+	struct HeapRange
+	{
+		uint64_t address;
+		uint64_t size;
+	};
+
+	constexpr size_t MAX_BASELINE_RANGES = 16;
+	HeapRange s_baselineRanges[MAX_BASELINE_RANGES];
+	size_t s_baselineCount = 0;
+
+	template<typename TCallback>
+	void ForEachNonPlainHeapRange(TCallback callback)
+	{
+		u64 heapStart = 0, heapSize = 0;
+		svcGetInfo(&heapStart, InfoType_HeapRegionAddress, CUR_PROCESS_HANDLE, 0);
+		svcGetInfo(&heapSize, InfoType_HeapRegionSize, CUR_PROCESS_HANDLE, 0);
+		u64 address = heapStart;
+		while (address < heapStart + heapSize)
+		{
+			MemoryInfo info{};
+			u32 pageInfo;
+			if (R_FAILED(svcQueryMemory(&info, &pageInfo, address)) || info.size == 0)
+				break;
+			const bool plain = info.type == MemType_Heap && info.perm == Perm_Rw && info.attr == 0;
+			if (!plain && info.type != MemType_Unmapped)
+				callback(info, heapStart);
+			address = info.addr + info.size;
+		}
+	}
+
+	bool IsBaselineRange(const MemoryInfo& info)
+	{
+		for (size_t i = 0; i < s_baselineCount; i++)
+		{
+			if (s_baselineRanges[i].address == info.addr && s_baselineRanges[i].size == info.size)
+				return true;
+		}
+		return false;
+	}
+
 	bool IsReadable(uintptr_t address, size_t size)
 	{
 		MemoryInfo info{};
@@ -158,6 +198,12 @@ namespace HorizonDiagnostics
 		std::snprintf(path, sizeof(path), "%s/%s-crash.log", directory, name);
 		HorizonException::OpenCrashLog(path);
 
+		s_baselineCount = 0;
+		ForEachNonPlainHeapRange([](const MemoryInfo& info, u64 heapStart) {
+			if (s_baselineCount < MAX_BASELINE_RANGES)
+				s_baselineRanges[s_baselineCount++] = {info.addr, info.size};
+		});
+
 		Log("%s, build id %s, module base %016lx", name, s_buildId, GetModuleBase());
 		Log("process core mask %#lx, application cores %#lx", GetProcessCoreMask(), GetApplicationCoreMask());
 	}
@@ -224,27 +270,15 @@ namespace HorizonDiagnostics
 
 	size_t AuditHeap(const char* when)
 	{
-		u64 heapStart = 0, heapSize = 0;
-		svcGetInfo(&heapStart, InfoType_HeapRegionAddress, CUR_PROCESS_HANDLE, 0);
-		svcGetInfo(&heapSize, InfoType_HeapRegionSize, CUR_PROCESS_HANDLE, 0);
 		size_t count = 0;
-		u64 address = heapStart;
-		while (address < heapStart + heapSize)
-		{
-			MemoryInfo info{};
-			u32 pageInfo;
-			if (R_FAILED(svcQueryMemory(&info, &pageInfo, address)) || info.size == 0)
-				break;
-			const bool plain = info.type == MemType_Heap && info.perm == Perm_Rw && info.attr == 0;
-			if (!plain && info.type != MemType_Unmapped)
-			{
-				Log("heap audit (%s): +%#lx size %#lx type %#x perm %#x attr %#x", when, info.addr - heapStart,
-					info.size, info.type, info.perm, info.attr);
-				count++;
-			}
-			address = info.addr + info.size;
-		}
-		Log("heap audit (%s): %zu non-plain ranges, %zu MiB free", when, count, GetFreeHeap() >> 20);
+		ForEachNonPlainHeapRange([&](const MemoryInfo& info, u64 heapStart) {
+			if (IsBaselineRange(info))
+				return;
+			Log("heap audit (%s): +%#lx size %#lx type %#x perm %#x attr %#x", when, info.addr - heapStart,
+				info.size, info.type, info.perm, info.attr);
+			count++;
+		});
+		Log("heap audit (%s): %zu non-plain ranges since start, %zu MiB free", when, count, GetFreeHeap() >> 20);
 		return count;
 	}
 

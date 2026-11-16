@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 PalindromicBreadLoaf
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Replacement for libnx's __libnx_exception_entry.
 
 #include "HorizonExceptionEntry.h"

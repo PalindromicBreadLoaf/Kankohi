@@ -1,0 +1,8 @@
+Kankohi is a fork of Cemu. Files inherited from Cemu, including any changes made
+to them by the developers of Kankohi, remain under the Mozilla Public License 2.0
+(see LICENSE.MPL2.txt).
+
+Any files added by Kankohi are licensed under the GNU General Public License,
+version 3 or any later version (see LICENSE.GPLv3.txt).
+
+Third-party code under dependencies/ keep their own licenses.

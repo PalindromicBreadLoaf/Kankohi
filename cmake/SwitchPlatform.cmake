@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 PalindromicBreadLoaf
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Platform block for Nintendo Switch builds.
 include(${CMAKE_CURRENT_LIST_DIR}/SwitchToolchainCheck.cmake)
 

@@ -7,6 +7,10 @@ If coding isn't your thing, testing games and making detailed bug reports or upd
 
 Questions about Cemu's software architecture can also be answered on Discord.
 
+#### Licensing:
+
+Changes to files inherited from Cemu are licensed under MPL-2.0. New files are licensed under GPL-3.0-or-later (see [COPYING](/COPYING)). By contributing to Kankohi, you agree that any changes made will be licensed under the same license the file is already governed under.
+
 #### AI-generated contributions:
 
 For new contributors we ask that all code submitted is written and understood by a human. You can use AI for planning, designing, reviewing and for asking questions about the codebase, but the code itself needs to be written by you. As a small exception you can use IntelliSense-style AI code autocompletion for pure boilerplate code as long as it's only a small part of your submission. To further clarify, when we ask for "human written" that excludes letting an AI write the code and then paraphrasing it. In other words, we are asking for human effort.

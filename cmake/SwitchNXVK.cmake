@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 PalindromicBreadLoaf
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 execute_process(
 	COMMAND "${PKG_CONFIG_EXECUTABLE}" --exists nxvk
 	RESULT_VARIABLE _nxvk_missing)

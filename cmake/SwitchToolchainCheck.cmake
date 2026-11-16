@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 PalindromicBreadLoaf
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "NintendoSwitch" OR NOT NINTENDO_SWITCH)
 	message(FATAL_ERROR "Not configured for the Switch (system ${CMAKE_SYSTEM_NAME}). Pass -DCMAKE_TOOLCHAIN_FILE=$ENV{DEVKITPRO}/cmake/Switch.cmake.")
 endif()

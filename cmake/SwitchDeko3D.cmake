@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 PalindromicBreadLoaf
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 set(_deko3d_files
 	"${NX_ROOT}/include/deko3d.h"
 	"${NX_ROOT}/include/deko3d.hpp"

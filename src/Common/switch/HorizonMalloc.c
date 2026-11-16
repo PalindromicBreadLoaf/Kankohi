@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 PalindromicBreadLoaf
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Replaces newlib's dlmalloc 2.6.
 #include <malloc.h>
 #include <reent.h>

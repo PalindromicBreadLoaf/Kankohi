@@ -1,0 +1,5 @@
+include(FindPackageHandleStandardArgs)
+if (TARGET glm::glm)
+	set(glm_FOUND_TARGET TRUE)
+endif()
+find_package_handle_standard_args(glm REQUIRED_VARS glm_FOUND_TARGET)

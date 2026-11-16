@@ -1,0 +1,6 @@
+include(FindPackageHandleStandardArgs)
+if (TARGET fmt::fmt)
+	set(fmt_FOUND_TARGET TRUE)
+	get_target_property(fmt_VERSION fmt VERSION)
+endif()
+find_package_handle_standard_args(fmt REQUIRED_VARS fmt_FOUND_TARGET VERSION_VAR fmt_VERSION)

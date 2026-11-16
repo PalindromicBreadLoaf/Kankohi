@@ -1,0 +1,5 @@
+include(FindPackageHandleStandardArgs)
+if (TARGET zstd::zstd)
+	set(zstd_FOUND_TARGET TRUE)
+endif()
+find_package_handle_standard_args(zstd REQUIRED_VARS zstd_FOUND_TARGET)

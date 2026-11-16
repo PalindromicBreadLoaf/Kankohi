@@ -1,0 +1,5 @@
+include(FindPackageHandleStandardArgs)
+if (TARGET glslang::glslang AND TARGET glslang::SPIRV)
+	set(glslang_FOUND_TARGET TRUE)
+endif()
+find_package_handle_standard_args(glslang REQUIRED_VARS glslang_FOUND_TARGET)

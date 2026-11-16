@@ -1,0 +1,5 @@
+include(FindPackageHandleStandardArgs)
+if (TARGET pugixml::pugixml)
+	set(pugixml_FOUND_TARGET TRUE)
+endif()
+find_package_handle_standard_args(pugixml REQUIRED_VARS pugixml_FOUND_TARGET)

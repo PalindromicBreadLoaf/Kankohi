@@ -35,6 +35,7 @@ set(BUILD_EXTERNAL OFF CACHE BOOL "" FORCE)
 set(UNIX TRUE)
 add_subdirectory(glslang EXCLUDE_FROM_ALL SYSTEM)
 unset(UNIX)
+target_include_directories(glslang SYSTEM INTERFACE glslang_include)
 
 include(LibreSSL.cmake)
 

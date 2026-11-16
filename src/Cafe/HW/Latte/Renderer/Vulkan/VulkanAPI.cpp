@@ -108,7 +108,7 @@ bool InitializeGlobalVulkan()
 		FreeLibrary(hmodule);
 		return false;
 	}
-	
+
 	g_vulkan_available = true;
 	return true;
 }
@@ -121,7 +121,7 @@ bool InitializeInstanceVulkan(VkInstance instance)
 
 	#define VKFUNC_INSTANCE_INIT
 	#include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
-	
+
 	return true;
 }
 
@@ -138,6 +138,52 @@ bool InitializeDeviceVulkan(VkDevice device)
 	#define VKFUNC_DEFINE_CUSTOM(__func) __func = VkWrapperFuncGenTest(__func, #__func)
 	#include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
 #endif
+
+	return true;
+}
+
+#elif defined(__SWITCH__)
+
+extern "C" VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vk_icdGetInstanceProcAddr(VkInstance instance, const char* pName);
+
+bool InitializeGlobalVulkan()
+{
+	if (g_vulkan_available)
+		return true;
+
+	setenv("NVK_I_WANT_A_BROKEN_VULKAN_DRIVER", "1", 1);
+	setenv("MESA_SHADER_CACHE_DISABLE", "1", 1);
+
+	#define VKFUNC_INIT
+	#include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
+
+	if (!vkGetInstanceProcAddr)
+		vkGetInstanceProcAddr = &vk_icdGetInstanceProcAddr;
+	if (!vkEnumerateInstanceVersion)
+	{
+		cemuLog_log(LogType::Force, "vkEnumerateInstanceVersion not available from NXVK");
+		return false;
+	}
+
+	g_vulkan_available = true;
+	return true;
+}
+
+bool InitializeInstanceVulkan(VkInstance instance)
+{
+	vkGetDeviceProcAddr = (PFN_vkGetDeviceProcAddr)vkGetInstanceProcAddr(instance, "vkGetDeviceProcAddr");
+	vkEnumerateDeviceExtensionProperties = (PFN_vkEnumerateDeviceExtensionProperties)vkGetInstanceProcAddr(instance, "vkEnumerateDeviceExtensionProperties");
+
+	#define VKFUNC_INSTANCE_INIT
+	#include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
+
+	return true;
+}
+
+bool InitializeDeviceVulkan(VkDevice device)
+{
+	#define VKFUNC_DEVICE_INIT
+	#include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
 
 	return true;
 }
@@ -177,7 +223,7 @@ bool InitializeGlobalVulkan()
 		cemuLog_log(LogType::Force, "vkEnumerateInstanceVersion not available. Outdated graphics driver or Vulkan runtime?");
 		return false;
 	}
-	
+
 	g_vulkan_available = true;
 	return true;
 }
@@ -190,7 +236,7 @@ bool InitializeInstanceVulkan(VkInstance instance)
 
 	#define VKFUNC_INSTANCE_INIT
 	#include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
-	
+
 	return true;
 }
 

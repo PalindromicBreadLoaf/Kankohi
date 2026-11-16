@@ -1,5 +1,6 @@
 include(FindPackageHandleStandardArgs)
 if (TARGET glslang::glslang AND TARGET glslang::SPIRV)
 	set(glslang_FOUND_TARGET TRUE)
+	set(glslang_VERSION 15.1.0)
 endif()
 find_package_handle_standard_args(glslang REQUIRED_VARS glslang_FOUND_TARGET)

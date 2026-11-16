@@ -4,7 +4,9 @@
 #undef CSIZE
 #include <xbyak_aarch64.h>
 #pragma pop_macro("CSIZE")
+#if !defined(__SWITCH__)
 #include <xbyak_aarch64_util.h>
+#endif
 
 #include <cstddef>
 
@@ -58,7 +60,19 @@ static const GPReg LR{TEMP_GPR_2_ID};
 
 static const FPReg TEMP_FPR{TEMP_FPR_ID};
 
+#if defined(__SWITCH__)
+static bool IsAtomicSupported()
+{
+	return false;
+}
+#else
 static const util::Cpu s_cpu;
+
+static bool IsAtomicSupported()
+{
+	return s_cpu.isAtomicSupported();
+}
+#endif
 
 class AArch64Allocator : public Allocator
 {
@@ -1135,7 +1149,7 @@ void AArch64GenContext_t::atomic_cmp_store(IMLInstruction* imlInstruction)
 	WReg valReg = gpReg<WReg>(imlInstruction->op_atomic_compare_store.regWriteValue);
 	WReg cmpValReg = gpReg<WReg>(imlInstruction->op_atomic_compare_store.regCompareValue);
 
-	if (s_cpu.isAtomicSupported())
+	if (IsAtomicSupported())
 	{
 		mov(TEMP_GPR2.WReg, cmpValReg);
 		add(TEMP_GPR1.XReg, MEM_BASE_REG, eaReg, ExtMod::UXTW);
@@ -1725,15 +1739,15 @@ void AArch64GenContext_t::leaveRecompilerCode()
 }
 
 bool initializedInterfaceFunctions = false;
-AArch64GenContext_t enterRecompilerCode_ctx{};
-
-AArch64GenContext_t leaveRecompilerCode_unvisited_ctx{};
-AArch64GenContext_t leaveRecompilerCode_visited_ctx{};
 void PPCRecompilerAArch64Gen_generateRecompilerInterfaceFunctions()
 {
 	if (initializedInterfaceFunctions)
 		return;
 	initializedInterfaceFunctions = true;
+
+	static AArch64GenContext_t enterRecompilerCode_ctx{};
+	static AArch64GenContext_t leaveRecompilerCode_unvisited_ctx{};
+	static AArch64GenContext_t leaveRecompilerCode_visited_ctx{};
 
 	enterRecompilerCode_ctx.enterRecompilerCode();
 	enterRecompilerCode_ctx.readyRE();

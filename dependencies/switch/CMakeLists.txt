@@ -37,3 +37,10 @@ add_subdirectory(glslang EXCLUDE_FROM_ALL SYSTEM)
 unset(UNIX)
 
 include(LibreSSL.cmake)
+
+add_library(xbyak_aarch64 STATIC ${PROJECT_SOURCE_DIR}/dependencies/xbyak_aarch64/src/xbyak_aarch64_impl.cpp)
+target_include_directories(xbyak_aarch64 SYSTEM PUBLIC
+	${PROJECT_SOURCE_DIR}/dependencies/xbyak_aarch64
+	${PROJECT_SOURCE_DIR}/dependencies/xbyak_aarch64/src
+	${PROJECT_SOURCE_DIR}/dependencies/xbyak_aarch64/xbyak_aarch64)
+target_include_directories(xbyak_aarch64 SYSTEM AFTER PUBLIC xbyak_aarch64_horizon)

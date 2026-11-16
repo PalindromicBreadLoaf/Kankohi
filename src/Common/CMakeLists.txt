@@ -35,6 +35,17 @@ if(WIN32)
 		windows/FileStream_win32.cpp
 		ExceptionHandler/ExceptionHandler_win32.cpp
 	)
+elseif(NINTENDO_SWITCH)
+	target_sources(CemuCommon PRIVATE
+		unix/date.h
+		unix/fast_float.h
+		unix/platform.cpp
+		unix/platform.h
+		unix/FileStream_unix.cpp
+		unix/FileStream_unix.h
+		switch/platform.h
+		ExceptionHandler/ExceptionHandler_switch.cpp
+	)
 else()
 target_sources(CemuCommon
 PRIVATE

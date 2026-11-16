@@ -3,7 +3,9 @@
 
 uint32_t GetTickCount()
 {
-#if BOOST_OS_LINUX
+#if defined(__SWITCH__)
+	return HorizonTicksToNs(HorizonSystemTick()) / 1000000;
+#elif BOOST_OS_LINUX
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
 	return (1000 * ts.tv_sec + ts.tv_nsec / 1000000);

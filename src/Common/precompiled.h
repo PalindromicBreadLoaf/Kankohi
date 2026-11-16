@@ -172,7 +172,9 @@ inline sint16 _swapEndianS16(sint16 v)
 #else
 inline uint64 _swapEndianU64(uint64 v)
 {
-#if BOOST_OS_MACOS
+#if defined(__SWITCH__)
+    return __builtin_bswap64(v);
+#elif BOOST_OS_MACOS
     return OSSwapInt64(v);
 #elif BOOST_OS_BSD
 #ifdef __OpenBSD__
@@ -187,7 +189,9 @@ inline uint64 _swapEndianU64(uint64 v)
 
 inline uint32 _swapEndianU32(uint32 v)
 {
-#if BOOST_OS_MACOS
+#if defined(__SWITCH__)
+    return __builtin_bswap32(v);
+#elif BOOST_OS_MACOS
     return OSSwapInt32(v);
 #elif BOOST_OS_BSD
 #ifdef __OpenBSD__
@@ -202,7 +206,9 @@ inline uint32 _swapEndianU32(uint32 v)
 
 inline sint32 _swapEndianS32(sint32 v)
 {
-#if BOOST_OS_MACOS
+#if defined(__SWITCH__)
+    return (sint32)__builtin_bswap32((uint32)v);
+#elif BOOST_OS_MACOS
     return (sint32)OSSwapInt32((uint32)v);
 #elif BOOST_OS_BSD
 #ifdef __OpenBSD__
@@ -493,6 +499,8 @@ bool match_any_of(T1&& value, Types&&... others)
 	const long long _Whole = (_Ctr / _Freq) * std::nano::den;
 	const long long _Part = (_Ctr % _Freq) * std::nano::den / _Freq;
 	return (std::chrono::steady_clock::time_point(std::chrono::nanoseconds(_Whole + _Part)));
+#elif defined(__SWITCH__)
+	return std::chrono::steady_clock::time_point(std::chrono::nanoseconds(HorizonTicksToNs(HorizonSystemTick())));
 #elif BOOST_OS_LINUX
 	struct timespec tp;
 	clock_gettime(CLOCK_MONOTONIC_RAW, &tp);

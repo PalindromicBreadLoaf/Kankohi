@@ -6,6 +6,8 @@ HighResolutionTimer HighResolutionTimer::now()
 	LARGE_INTEGER pc;
 	QueryPerformanceCounter(&pc);
 	return HighResolutionTimer(pc.QuadPart);
+#elif defined(__SWITCH__)
+	return HighResolutionTimer(HorizonSystemTick());
 #elif BOOST_OS_LINUX
     timespec pc;
     clock_gettime(CLOCK_MONOTONIC_RAW, &pc);
@@ -31,6 +33,8 @@ uint64 HighResolutionTimer::m_freq = []() -> uint64 {
 	LARGE_INTEGER freq;
 	QueryPerformanceFrequency(&freq);
 	return (uint64)(freq.QuadPart);
+#elif defined(__SWITCH__)
+	return 19200000;
 #elif BOOST_OS_MACOS
 	return 1000000000;
 #elif BOOST_OS_BSD

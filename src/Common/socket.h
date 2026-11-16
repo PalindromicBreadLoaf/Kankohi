@@ -12,10 +12,15 @@ typedef int socklen_t;
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+
+#if defined(__SWITCH__) && !defined(ESHUTDOWN)
+#define ESHUTDOWN 110
+#endif
 
 #define WSAEWOULDBLOCK EWOULDBLOCK
 #define WSAEINPROGRESS EINPROGRESS

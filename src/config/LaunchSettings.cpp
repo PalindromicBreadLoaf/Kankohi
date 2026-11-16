@@ -5,7 +5,9 @@
 
 #include "Cafe/OS/libs/coreinit/coreinit.h"
 
+#if !defined(__SWITCH__)
 #include "boost/program_options.hpp"
+#endif
 
 #include "config/ActiveSettings.h"
 #include "config/NetworkSettings.h"
@@ -36,7 +38,7 @@ std::optional<int> LaunchSettings::HandleCommandline(int argc, wchar_t* argv[])
 	{
 		args.emplace_back(argv[i]);
 	}
-	
+
 	return HandleCommandline(args);
 }
 
@@ -48,10 +50,105 @@ std::optional<int> LaunchSettings::HandleCommandline(int argc, char* argv[])
 	{
 		args.emplace_back(boost::nowide::widen(argv[i]));
 	}
-	
+
 	return HandleCommandline(args);
 }
 
+#if defined(__SWITCH__)
+// Boost.Program_options isn't built so the options that apply there are parsed here
+std::optional<int> LaunchSettings::HandleCommandline(const std::vector<std::wstring>& args)
+{
+	for (size_t i = 0; i < args.size(); i++)
+	{
+		std::string arg = boost::nowide::narrow(args[i]);
+		if (!arg.starts_with('-'))
+			continue;
+		std::optional<std::string> attachedValue;
+		if (size_t equals = arg.find('='); equals != std::string::npos)
+		{
+			attachedValue = arg.substr(equals + 1);
+			arg.resize(equals);
+		}
+		auto nextValue = [&]() -> std::optional<std::string> {
+			if (attachedValue)
+				return attachedValue;
+			if (i + 1 < args.size())
+				return boost::nowide::narrow(args[++i]);
+			cemuLog_log(LogType::Force, "Command line option {} is missing its value", arg);
+			return std::nullopt;
+		};
+		auto flagValue = [&]() -> bool {
+			return !attachedValue || (*attachedValue != "0" && *attachedValue != "false");
+		};
+
+		if (arg == "--game" || arg == "-g")
+		{
+			if (auto value = nextValue())
+				s_load_game_file = _utf8ToPath(*value);
+		}
+		else if (arg == "--title-id" || arg == "-t")
+		{
+			TitleId titleId{};
+			if (auto value = nextValue(); value && TitleIdParser::ParseFromStr(*value, titleId))
+				s_load_title_id = titleId;
+			else
+				cemuLog_log(LogType::Force, "Invalid title id format");
+		}
+		else if (arg == "--mlc" || arg == "-m")
+		{
+			if (auto value = nextValue())
+				s_mlc_path = _utf8ToPath(*value);
+		}
+		else if (arg == "--account" || arg == "-a")
+		{
+			if (auto value = nextValue())
+			{
+				const auto id = ConvertString<uint32>(*value, 16);
+				if (id >= Account::kMinPersistendId)
+					s_persistent_id = id;
+			}
+		}
+		else if (arg == "--verbose")
+			s_verbose = true;
+		else if (arg == "--forward-console-logging")
+			s_forward_console_logging = true;
+		else if (arg == "--force-interpreter")
+			s_force_interpreter = flagValue();
+		else if (arg == "--force-multicore-interpreter")
+			s_force_multicore_interpreter = flagValue();
+		else if (arg == "--enable-gdbstub")
+			s_enable_gdbstub = flagValue();
+		else if (arg == "--cos-argstr")
+		{
+			if (auto value = nextValue())
+			{
+				std::string_view firstArg = std::string_view(*value).substr(0, value->find(' '));
+				if (!firstArg.ends_with(".rpx"))
+				{
+					cemuLog_log(LogType::Force, "--cos-argstr's first argument must be a filename that ends in '.rpx'");
+					return 1;
+				}
+				s_cos_argstr = *value;
+			}
+		}
+		else if (arg == "--ppcrec-lower-addr")
+		{
+			if (auto value = nextValue())
+				ppcRec_limitLowerAddr = (uint32)StringHelpers::ToInt64(*value);
+		}
+		else if (arg == "--ppcrec-upper-addr")
+		{
+			if (auto value = nextValue())
+				ppcRec_limitUpperAddr = (uint32)StringHelpers::ToInt64(*value);
+		}
+		else
+			cemuLog_log(LogType::Force, "Ignoring unknown command line option {}", arg);
+	}
+	if (ppcRec_limitLowerAddr != 0 && ppcRec_limitUpperAddr != 0)
+		cemuLog_log(LogType::Force, "PPCRec range limited to 0x{:08x}-0x{:08x}", ppcRec_limitLowerAddr, ppcRec_limitUpperAddr);
+	return std::nullopt;
+}
+#else
 std::optional<int> LaunchSettings::HandleCommandline(const std::vector<std::wstring>& args)
 {
 	namespace po = boost::program_options;
@@ -93,7 +190,7 @@ std::optional<int> LaunchSettings::HandleCommandline(const std::vector<std::wstr
 		("extract,e", po::wvalue<std::wstring>(), "Path to WUD or WUX file for extraction")
 		("path,p", po::value<std::string>(), "Path of file to extract (for example meta/meta.xml)")
 		("output,o", po::wvalue<std::wstring>(), "Output path for extracted file.");
-	
+
 	po::options_description all;
 	all.add(desc).add(hidden).add(extractor);
 
@@ -142,7 +239,7 @@ std::optional<int> LaunchSettings::HandleCommandline(const std::vector<std::wstr
 			// workaround for boost command_line_parser not trimming token for short name parameters despite short_allow_adjacent
 			if (tmp.size() > 0 && tmp.front() == '=')
 				tmp.erase(tmp.begin()+0);
-			
+
 			s_load_game_file = tmp;
 		}
         if (vm.count("title-id"))
@@ -161,7 +258,7 @@ std::optional<int> LaunchSettings::HandleCommandline(const std::vector<std::wstr
                 std::cerr << "Expected title_param ID as an unsigned 64-bit hexadecimal string\n";
             }
         }
-			
+
 		if (vm.count("mlc"))
 		{
 			std::wstring tmp = vm["mlc"].as<std::wstring>();
@@ -178,12 +275,12 @@ std::optional<int> LaunchSettings::HandleCommandline(const std::vector<std::wstr
 			if (id >= Account::kMinPersistendId)
 				s_persistent_id = id;
 		}
-		
+
 		if (vm.count("fullscreen"))
 			s_fullscreen = vm["fullscreen"].as<bool>();
 		if (vm.count("ud"))
 			s_render_upside_down = vm["ud"].as<bool>();
-		
+
 		if (vm.count("nsight"))
 			s_nsight_mode = vm["nsight"].as<bool>();
 
@@ -192,7 +289,7 @@ std::optional<int> LaunchSettings::HandleCommandline(const std::vector<std::wstr
 
 		if(vm.count("force-multicore-interpreter"))
 			s_force_multicore_interpreter = vm["force-multicore-interpreter"].as<bool>();
-		
+
 		if (vm.count("enable-gdbstub"))
 			s_enable_gdbstub = vm["enable-gdbstub"].as<bool>();
 
@@ -280,8 +377,9 @@ std::optional<int> LaunchSettings::HandleCommandline(const std::vector<std::wstr
 		std::cout << errorMsg << std::endl;
 		return 1;
 	}
-	
+
 }
+#endif
 
 bool LaunchSettings::ExtractorTool(std::wstring_view wud_path, std::string_view output_path, std::wstring_view log_path)
 {
@@ -318,10 +416,10 @@ bool LaunchSettings::ExtractorTool(std::wstring_view wud_path, std::string_view 
 			fs::path filename(std::wstring{ log_path });
 
 			filename /= boost::nowide::widen(std::string(output_path));
-			
+
 			fs::path p = filename;
 			p.remove_filename();
-			
+
 			fs::create_directories(p);
 			std::ofstream file(filename, std::ios::out | std::ios::binary);
 			file.write((const char*)fileData.data(), fileData.size());
@@ -341,6 +439,6 @@ bool LaunchSettings::ExtractorTool(std::wstring_view wud_path, std::string_view 
 		printf("%.*s", (int)fileData.size(), fileData.data());
 		fflush(stdout);
 	}
-	
+
 	return true;
 }

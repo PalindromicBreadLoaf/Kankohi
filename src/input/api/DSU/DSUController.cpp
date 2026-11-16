@@ -1,7 +1,5 @@
 #include "input/api/DSU/DSUController.h"
 
-#include <boost/program_options/value_semantic.hpp>
-
 DSUController::DSUController(uint32 index)
 	: base_type(fmt::format("{}", index), fmt::format("Controller {}", index + 1)), m_index(index)
 {

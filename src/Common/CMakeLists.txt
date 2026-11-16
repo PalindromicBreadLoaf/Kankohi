@@ -59,10 +59,6 @@ endif()
 target_precompile_headers(CemuCommon PRIVATE precompiled.h)
 target_include_directories(CemuCommon PUBLIC "../")
 
-target_link_libraries(CemuCommon PRIVATE
-	glm::glm
-)
-
 if (UNIX AND NOT APPLE)
 	target_link_libraries(CemuCommon PRIVATE X11::X11 X11::Xrender X11::Xutil)
 endif()
@@ -71,9 +67,11 @@ endif()
 # - boost/nowide/convert.hpp is included in precompiled.h
 # - boost/predef/os.h is included in platform.h
 # - fmt/core.h is included in precompiled.h
+# - glm/glm.hpp is included in precompiled.h
 target_link_libraries(CemuCommon PUBLIC
 	Threads::Threads # necessary because some targets may need -pthreads
 	Boost::nowide
 	Boost::headers
 	fmt::fmt
+	glm::glm
 )

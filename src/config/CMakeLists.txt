@@ -20,6 +20,7 @@ target_include_directories(CemuConfig PUBLIC "../")
 target_link_libraries(CemuConfig PRIVATE
 	CemuCommon
     CemuGui
+    OpenSSL::Crypto
 )
 
 if (NOT NINTENDO_SWITCH)

@@ -231,6 +231,7 @@ target_link_libraries(CemuBin PRIVATE
 	CemuGui
 	CemuInput
 	CemuUtil
+	pugixml::pugixml
 )
 
 if(UNIX AND NOT APPLE)

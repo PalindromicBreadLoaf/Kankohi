@@ -101,4 +101,5 @@ target_include_directories(CemuUtil PUBLIC "../")
 
 target_link_libraries(CemuUtil PRIVATE
   CemuCommon
+  ZLIB::ZLIB
 )

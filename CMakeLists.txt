@@ -59,6 +59,10 @@ project(Cemu VERSION 2.0.0)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
+if (NINTENDO_SWITCH)
+	include(cmake/SwitchPlatform.cmake)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

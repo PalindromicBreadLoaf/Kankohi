@@ -1,0 +1,48 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 1 },
+  "configurePresets": [
+    {
+      "name": "switch-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "toolchainFile": "$env{DEVKITPRO}/cmake/Switch.cmake",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "$env{DEVKITPRO}/devkitA64/bin/aarch64-none-elf-gcc",
+        "CMAKE_CXX_COMPILER": "$env{DEVKITPRO}/devkitA64/bin/aarch64-none-elf-g++",
+        "ENABLE_VCPKG": "OFF"
+      },
+      "environment": {
+        "CC": "",
+        "CXX": ""
+      },
+      "condition": { "type": "notEquals", "lhs": "$env{DEVKITPRO}", "rhs": "" }
+    },
+    {
+      "name": "switch-release",
+      "displayName": "Switch release (LTO)",
+      "inherits": "switch-base",
+      "binaryDir": "${sourceDir}/build/switch-release",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "switch-relwithdebinfo",
+      "displayName": "Switch release with debug info (LTO)",
+      "inherits": "switch-base",
+      "binaryDir": "${sourceDir}/build/switch-relwithdebinfo",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+    },
+    {
+      "name": "switch-debug",
+      "displayName": "Switch debug",
+      "inherits": "switch-base",
+      "binaryDir": "${sourceDir}/build/switch-debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "switch-release", "configurePreset": "switch-release" },
+    { "name": "switch-relwithdebinfo", "configurePreset": "switch-relwithdebinfo" },
+    { "name": "switch-debug", "configurePreset": "switch-debug" }
+  ]
+}

@@ -95,6 +95,7 @@ if(NINTENDO_SWITCH)
 		Common/switch/HorizonLibcShims.cpp
 		Common/switch/HorizonMalloc.c
 		Common/switch/HorizonMemory.cpp
+		Common/switch/HorizonNetwork.cpp
 	)
 	target_sources(CemuBin PRIVATE
 		${HORIZON_SOURCES}
@@ -104,7 +105,11 @@ if(NINTENDO_SWITCH)
 	set_source_files_properties(${HORIZON_SOURCES} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 	set_source_files_properties(Common/switch/HorizonMalloc.c PROPERTIES
 		INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/dependencies/dlmalloc")
-	target_link_options(CemuBin PRIVATE -Wl,--wrap=pthread_create -Wl,--wrap=pthread_join)
+	target_link_options(CemuBin PRIVATE
+		-Wl,--wrap=pthread_create -Wl,--wrap=pthread_join
+		-Wl,--wrap=socket -Wl,--wrap=socketpair
+		-Wl,--wrap=getaddrinfo -Wl,--wrap=getnameinfo -Wl,--wrap=gethostbyname -Wl,--wrap=gethostbyaddr
+	)
 	if(ENABLE_NXVK)
 		target_link_libraries(CemuBin PRIVATE nxvk::nxvk)
 	endif()

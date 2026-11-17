@@ -5,7 +5,7 @@
 class FileCache
 {
 public:
-	struct FileName 
+	struct FileName
 	{
 		FileName(uint64 name1, uint64 name2) : name1(name1), name2(name2) {};
 		FileName(std::string_view filePath)

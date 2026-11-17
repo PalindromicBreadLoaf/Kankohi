@@ -4,6 +4,7 @@
 #include "Cemu/FileCache/FileCache.h"
 #include "Common/FileStream.h"
 #include "Common/switch/HorizonDiagnostics.h"
+#include "Common/switch/HorizonNetwork.h"
 #include "config/LaunchSettings.h"
 
 static constexpr const char* LOG_DIRECTORY = "sdmc:/switch/kankohi/logs";
@@ -48,6 +49,7 @@ __attribute__((constructor(101))) static void InitDiagnostics()
 
 int main(int argc, char* argv[])
 {
+	std::atexit(HorizonNetwork::Shutdown);
 	std::atexit(FileStream::FlushAllWrites);
 	std::atexit(FileCache::ShutdownAsyncWriter);
 	int exitCode = LaunchSettings::HandleCommandline(argc, argv).value_or(0);

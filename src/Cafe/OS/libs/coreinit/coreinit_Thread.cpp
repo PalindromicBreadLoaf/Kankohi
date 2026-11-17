@@ -155,9 +155,9 @@ namespace coreinit
 		cemu_assert(it != s_activeThreads.end());
 		s_activeThreads.erase(it);
 		s_activeThreadListSRWLock.UnlockWrite();
-		
+
 		g_activeThreadQueue->removeThread(thread, &thread->activeThreadChain); // todo - check if thread in queue
-		
+
 		cemu_assert_debug(thread->state == OSThread_t::THREAD_STATE::STATE_NONE);
 		thread->id = 0x8000;
 
@@ -581,7 +581,7 @@ namespace coreinit
 		// handle join queue
 		if (!currentThread->joinQueue.isEmpty())
 			currentThread->joinQueue.wakeupEntireWaitQueue(false);
-	
+
 		if ((currentThread->attr & 8) != 0)
 		{
 			// deactivate thread since it is detached
@@ -1293,7 +1293,7 @@ namespace coreinit
 			Fiber::Switch(*g_idleLoopFiber[t_assignedCoreIndex]);
 		}
 
-		cemu_assert_debug(__OSHasSchedulerLock());	
+		cemu_assert_debug(__OSHasSchedulerLock());
 		cemu_assert_debug(g_isMulticoreMode == false || hostThread->selectedCore == t_assignedCoreIndex);
 
 		// received next time slice, load self again
@@ -1478,7 +1478,7 @@ namespace coreinit
 		threadQueue->userData = nullptr;
 		threadQueue->ukn0C = 0;
 	}
-	
+
 	void OSInitThreadQueueEx(OSThreadQueue* threadQueue, void* userData)
 	{
 		threadQueue->head = nullptr;
@@ -1486,9 +1486,9 @@ namespace coreinit
 		threadQueue->userData = userData;
 		threadQueue->ukn0C = 0;
 	}
-	
+
 	/* Thread terminator threads (for calling thread deallocators) */
-	struct TerminatorThread 
+	struct TerminatorThread
 	{
 		struct DeallocatorQueueEntry
 		{

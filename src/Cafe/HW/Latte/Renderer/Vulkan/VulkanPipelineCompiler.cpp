@@ -626,7 +626,7 @@ void PipelineCompiler::InitBlendState(const LatteContextRegister& latteRegister,
 			// force-disable blending for integer formats
 			entry.blendEnable = VK_FALSE;
 		}
-		
+
 		const auto& blendControlReg = latteRegister.CB_BLENDN_CONTROL[i];
 
 		entry.colorWriteMask = (renderTargetMask >> (i * 4)) & 0xF;

@@ -27,7 +27,7 @@ std::atomic_uint32_t sTLRefreshRequests{};
 std::atomic_bool sTLIsScanMandatory{ false };
 
 // callback list
-struct TitleListCallbackEntry 
+struct TitleListCallbackEntry
 {
 	TitleListCallbackEntry(void(*cb)(CafeTitleListCallbackEvent* evt, void* ctx), void* ctx, uint64 uniqueId) :
 		cb(cb), ctx(ctx), uniqueId(uniqueId) {};
@@ -150,7 +150,7 @@ void CafeTitleList::ClearScanPaths()
 }
 
 void CafeTitleList::AddScanPath(fs::path path)
-{	
+{
 	std::unique_lock _lock(sTLMutex);
 	sTLScanPaths.emplace_back(path);
 }
@@ -356,7 +356,7 @@ void CafeTitleList::ScanGamePath(const fs::path& path)
 	bool hasContentFolder = false, hasCodeFolder = false, hasMetaFolder = false;
 	std::error_code ec;
 	for (auto& it : fs::directory_iterator(path, ec))
-	{		
+	{
 		if (it.is_regular_file(ec))
 		{
 			filesInDirectory.emplace_back(it.path());
@@ -458,7 +458,7 @@ void CafeTitleList::AddDiscoveredTitle(TitleInfo* titleInfo)
 	auto pendingIt = std::find_if(sTLListPending.begin(), sTLListPending.end(), [titleInfo](const TitleInfo* it) { return it->IsEqualByLocation(*titleInfo); });
 	if (pendingIt != sTLListPending.end())
 		sTLListPending.erase(pendingIt);
-	AddTitle(titleInfo);	
+	AddTitle(titleInfo);
 }
 
 void CafeTitleList::AddTitle(TitleInfo* titleInfo)
@@ -643,7 +643,7 @@ GameInfo2 CafeTitleList::GetGameInfo(TitleId titleId)
 	bool hasSeparateUpdateTitleId = tip.CanHaveSeparateUpdateTitleId();
 	uint64 updateTitleId = 0;
 	if (hasSeparateUpdateTitleId)
-		updateTitleId = tip.GetSeparateUpdateTitleId();	
+		updateTitleId = tip.GetSeparateUpdateTitleId();
 	// scan the title list for base and update
 	std::unique_lock _lock(sTLMutex);
 	for (auto& it : sTLList)

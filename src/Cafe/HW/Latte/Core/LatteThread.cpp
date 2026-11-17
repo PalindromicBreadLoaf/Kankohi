@@ -76,7 +76,7 @@ bool LatteHandleOSScreen_TV()
 
 	// TV screen
 	LatteRenderTarget_copyToBackbuffer(osScreenTVTex[bufferIndexTV]->baseTexture->baseView, false);
-	
+
 	if (LatteGPUState.osScreen.screen[0].flipExecuteCount != LatteGPUState.osScreen.screen[0].flipRequestCount)
 		LatteGPUState.osScreen.screen[0].flipExecuteCount.store(LatteGPUState.osScreen.screen[0].flipRequestCount);
 	return true;
@@ -132,21 +132,21 @@ int Latte_ThreadEntry()
 	LatteStreamout_InitCache();
 
 	g_renderer->renderTarget_setViewport(0, 0, w, h, 0.0f, 1.0f);
-	
+
 	// enable GLSL gl_PointSize support
 	// glEnable(GL_PROGRAM_POINT_SIZE); // breaks shader caching on AMD (as of 2018)
-	
+
 	LatteGPUState.glVendor = GLVENDOR_UNKNOWN;
 	switch(g_renderer->GetVendor())
 	{
-	case GfxVendor::AMD: 
+	case GfxVendor::AMD:
 		LatteGPUState.glVendor = GLVENDOR_AMD;
 		break;
 	case GfxVendor::Intel:
-		LatteGPUState.glVendor = GLVENDOR_INTEL; 
+		LatteGPUState.glVendor = GLVENDOR_INTEL;
 		break;
-	case GfxVendor::Nvidia: 
-		LatteGPUState.glVendor = GLVENDOR_NVIDIA; 
+	case GfxVendor::Nvidia:
+		LatteGPUState.glVendor = GLVENDOR_NVIDIA;
 		break;
 	case GfxVendor::Apple:
 		LatteGPUState.glVendor = GLVENDOR_APPLE;

@@ -100,7 +100,7 @@ T ConvertString(std::string_view str, sint32 base)
 {
 	if (str.empty())
 		return {};
-	
+
 	static_assert(std::is_integral_v<T>);
 	T result;
 	ltrim(str);
@@ -120,14 +120,14 @@ T ConvertString(std::string_view str, sint32 base)
 					result = static_cast<T>(-static_cast<std::make_signed_t<T>>(result));
 				else
 					result = -result;
-			}	
-			
+			}
+
 			return result;
 		}
 
 		return {};
 	}
-	
+
 	if(std::from_chars(str.data(), str.data() + str.size(), result, base).ec == std::errc())
 		return result;
 
@@ -139,7 +139,7 @@ T ConvertString(std::string_view str)
 {
 	if (str.empty())
 		return {};
-	
+
 	T result;
 	ltrim(str);
 	if constexpr (std::is_same_v<T, bool>)

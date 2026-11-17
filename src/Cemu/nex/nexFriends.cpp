@@ -4,6 +4,7 @@
 #include "nexFriends.h"
 #include "Cafe/CafeSystem.h"
 #include "util/helpers/StringHelpers.h"
+#include "util/ThreadPool/ThreadPool.h"
 
 static const int NOTIFICATION_SRV_FRIEND_OFFLINE = 0x0A; // the opposite event (friend online) is notified via _PRESENCE_CHANGE
 static const int NOTIFICATION_SRV_FRIEND_PRESENCE_CHANGE = 0x18;
@@ -266,8 +267,7 @@ void NexFriends::initiateLogin()
 	this->hasData = false;
 	// start login attempt
 	cemuLog_logDebug(LogType::Force, "Attempt to log into friend server...");
-	std::thread t(&NexFriends::doAsyncLogin, this);
-	t.detach();
+	ThreadPool::FireAndForget(&NexFriends::doAsyncLogin, this);
 }
 
 void NexFriends::handleResponse_getAllInformation(nexServiceResponse_t* response, NexFriends* nexFriends, std::function<void(uint32)> cb)

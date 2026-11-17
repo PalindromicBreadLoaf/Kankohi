@@ -1,6 +1,7 @@
 #include "SaveList.h"
 #include <charconv>
 #include <util/helpers/helpers.h>
+#include "util/ThreadPool/ThreadPool.h"
 
 std::mutex sSLMutex;
 fs::path sSLMLCPath;
@@ -39,8 +40,7 @@ void CafeSaveList::Refresh()
 	if (sSLWorkerThreadActive)
 		return;
 	sSLWorkerThreadActive = true;
-	std::thread t(RefreshThreadWorker);
-	t.detach();
+	ThreadPool::FireAndForget(RefreshThreadWorker);
 }
 
 void CafeSaveList::RefreshThreadWorker()
@@ -70,7 +70,7 @@ void CafeSaveList::RefreshThreadWorker()
 			continue;
 		std::string dirName = _pathToUtf8(it_titleHigh.path().filename());
 		if(dirName.empty())
-			continue;		
+			continue;
 		uint32 titleIdHigh;
 		std::from_chars_result r = std::from_chars(dirName.data(), dirName.data() + dirName.size(), titleIdHigh, 16);
 		if (r.ec != std::errc())

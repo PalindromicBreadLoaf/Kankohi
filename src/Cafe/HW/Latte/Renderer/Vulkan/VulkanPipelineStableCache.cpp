@@ -17,7 +17,7 @@ struct
 {
 	uint32 pipelineLoadIndex;
 	uint32 pipelineMaxFileIndex;
-	
+
 	std::atomic_uint32_t pipelinesQueued;
 	std::atomic_uint32_t pipelinesLoaded;
 }g_vkCacheState;
@@ -34,15 +34,15 @@ uint32 VulkanPipelineStableCache::BeginLoading(uint64 cacheTitleId)
 	std::error_code ec;
 	fs::create_directories(ActiveSettings::GetCachePath("shaderCache/transferable"), ec);
 	const auto pathCacheFile = ActiveSettings::GetCachePath("shaderCache/transferable/{:016x}_vkpipeline.bin", cacheTitleId);
-	
+
 	// init cache loader state
 	g_vkCacheState.pipelineLoadIndex = 0;
 	g_vkCacheState.pipelineMaxFileIndex = 0;
 	g_vkCacheState.pipelinesLoaded = 0;
 	g_vkCacheState.pipelinesQueued = 0;
-	
+
 	// start async compilation threads
-	m_compilationCount.store(0);	
+	m_compilationCount.store(0);
 	m_compilationQueue.clear();
 
 	// get core count
@@ -52,10 +52,7 @@ uint32 VulkanPipelineStableCache::BeginLoading(uint64 cacheTitleId)
 		m_numCompilationThreads = 1;
 
 	for (uint32 i = 0; i < m_numCompilationThreads; i++)
-	{
-		std::thread compileThread(&VulkanPipelineStableCache::CompilerThread, this);
-		compileThread.detach();
-	}
+		m_compilationThreads.emplace_back(&VulkanPipelineStableCache::CompilerThread, this);
 
 	// open cache file or create it
 	cemu_assert_debug(s_cache == nullptr);
@@ -114,11 +111,24 @@ void VulkanPipelineStableCache::EndLoading()
 	{
 		m_compilationQueue.push({}); // push empty workload for every thread. Threads then will shutdown after checking for m_numCompilationThreads == 0
 	}
+	for (std::thread& thread : m_compilationThreads)
+		thread.join();
+	m_compilationThreads.clear();
 	// keep cache file open for writing of new pipelines
 }
 
+struct CachedPipeline;
+ConcurrentQueue<CachedPipeline*> g_pipelineCachingQueue;
+
 void VulkanPipelineStableCache::Close()
 {
+	if (m_pipelineCacheStoreThread)
+	{
+		g_pipelineCachingQueue.push(nullptr);
+		m_pipelineCacheStoreThread->join();
+		delete m_pipelineCacheStoreThread;
+		m_pipelineCacheStoreThread = nullptr;
+	}
     if(s_cache)
     {
         delete s_cache;
@@ -310,16 +320,11 @@ bool VulkanPipelineStableCache::HasPipelineCached(uint64 baseHash, uint64 pipeli
 	return m_pipelineIsCached.find(ph) != m_pipelineIsCached.end();
 }
 
-ConcurrentQueue<CachedPipeline*> g_pipelineCachingQueue;
-
 void VulkanPipelineStableCache::AddCurrentStateToCache(uint64 baseHash, uint64 pipelineStateHash)
 {
 	m_pipelineIsCached.emplace(baseHash, pipelineStateHash);
 	if (!m_pipelineCacheStoreThread)
-	{
 		m_pipelineCacheStoreThread = new std::thread(&VulkanPipelineStableCache::WorkerThread, this);
-		m_pipelineCacheStoreThread->detach();
-	}
 	// fill job structure with cached GPU state
 	// for each cached pipeline we store:
 	// - Active shaders (referenced by hash)
@@ -427,6 +432,8 @@ void VulkanPipelineStableCache::WorkerThread()
 	{
 		CachedPipeline* job;
 		g_pipelineCachingQueue.pop(job);
+		if (!job)
+			break;
 		if (!s_cache)
 		{
 			delete job;

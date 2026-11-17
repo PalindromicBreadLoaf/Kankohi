@@ -4,6 +4,7 @@
 #include "Cafe/OS/libs/coreinit/coreinit_Thread.h"
 #include "Backend.h"
 #include "Whitelist.h"
+#include "util/ThreadPool/ThreadPool.h"
 
 
 namespace nsyshid
@@ -403,8 +404,7 @@ namespace nsyshid
 		else
 		{
 			// asynchronous
-			std::thread(&_hidGetDescriptorAsync, device, descType, descIndex, lang, output, outputMaxLength, cbFuncMPTR, cbParamMPTR)
-				.detach();
+			ThreadPool::FireAndForget(&_hidGetDescriptorAsync, device, descType, descIndex, lang, output, outputMaxLength, cbFuncMPTR, cbParamMPTR);
 			returnCode = 0;
 		}
 		osLib_returnFromFunction(hCPU, returnCode);
@@ -465,8 +465,7 @@ namespace nsyshid
 		else
 		{
 			// asynchronous
-			std::thread(&_hidSetIdleAsync, device, ifIndex, reportId, duration, callbackFuncMPTR, callbackParamMPTR)
-				.detach();
+			ThreadPool::FireAndForget(&_hidSetIdleAsync, device, ifIndex, reportId, duration, callbackFuncMPTR, callbackParamMPTR);
 			returnCode = 0;
 		}
 		osLib_returnFromFunction(hCPU, returnCode);
@@ -525,8 +524,7 @@ namespace nsyshid
 		else
 		{
 			// asynchronous
-			std::thread(&_hidSetProtocolAsync, device, ifIndex, protocol, callbackFuncMPTR, callbackParamMPTR)
-				.detach();
+			ThreadPool::FireAndForget(&_hidSetProtocolAsync, device, ifIndex, protocol, callbackFuncMPTR, callbackParamMPTR);
 			returnCode = 0;
 		}
 		osLib_returnFromFunction(hCPU, returnCode);
@@ -615,9 +613,8 @@ namespace nsyshid
 		else
 		{
 			// asynchronous
-			std::thread(&_hidSetReportAsync, device, reportType, reportId, data, dataLength,
-						callbackFuncMPTR, callbackParamMPTR)
-				.detach();
+			ThreadPool::FireAndForget(&_hidSetReportAsync, device, reportType, reportId, data, dataLength,
+									  callbackFuncMPTR, callbackParamMPTR);
 			returnCode = 0;
 		}
 		osLib_returnFromFunction(hCPU, returnCode);
@@ -705,7 +702,7 @@ namespace nsyshid
 		if (callbackFuncMPTR != MPTR_NULL)
 		{
 			// asynchronous transfer
-			std::thread(&_hidReadAsync, device, data, maxLength, callbackFuncMPTR, callbackParamMPTR).detach();
+			ThreadPool::FireAndForget(&_hidReadAsync, device, data, maxLength, callbackFuncMPTR, callbackParamMPTR);
 			returnCode = 0;
 		}
 		else
@@ -802,7 +799,7 @@ namespace nsyshid
 		if (callbackFuncMPTR != MPTR_NULL)
 		{
 			// asynchronous transfer
-			std::thread(&_hidWriteAsync, device, data, maxLength, callbackFuncMPTR, callbackParamMPTR).detach();
+			ThreadPool::FireAndForget(&_hidWriteAsync, device, data, maxLength, callbackFuncMPTR, callbackParamMPTR);
 			returnCode = 0;
 		}
 		else

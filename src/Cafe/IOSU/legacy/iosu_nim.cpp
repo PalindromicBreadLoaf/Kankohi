@@ -13,6 +13,7 @@
 #include "Cafe/CafeSystem.h"
 #include "Cafe/Account/Account.h"
 #include "config/ActiveSettings.h"
+#include "util/ThreadPool/ThreadPool.h"
 
 namespace iosu
 {
@@ -265,8 +266,7 @@ namespace iosu
 			if (g_nim.backgroundThreadStarted == false)
 			{
 				cemuLog_log(LogType::Force, "IOSU: Starting nim background thread");
-				std::thread t(nim_backgroundThread);
-				t.detach();
+				ThreadPool::FireAndForget(nim_backgroundThread);
 				g_nim.backgroundThreadStarted = true;
 			}
 			while (g_nim.packageListReady == false)
@@ -281,6 +281,8 @@ namespace iosu
 			{
 				uint32 returnValue = 0; // Ioctl return value
 				ioQueueEntry_t* ioQueueEntry = iosuIoctl_getNextWithWait(IOS_DEVICE_NIM);
+				if (!ioQueueEntry)
+					break;
 				if (ioQueueEntry->request == IOSU_NIM_REQUEST_CEMU)
 				{
 					iosuNimCemuRequest_t* nimCemuRequest = (iosuNimCemuRequest_t*)ioQueueEntry->bufferVectors[0].buffer.GetPtr();
@@ -329,6 +331,8 @@ namespace iosu
 			return;
 		}
 
+		std::thread s_nimThread;
+
 		void Initialize()
 		{
 			if (g_nim.isInitialized)
@@ -338,9 +342,17 @@ namespace iosu
 			g_nim.packages.clear();
 			g_nim.packageListReady = false;
 			g_nim.backgroundThreadStarted = false;
-			std::thread t2(iosuNim_thread);
-			t2.detach();
+			s_nimThread = std::thread(iosuNim_thread);
 			g_nim.isInitialized = true;
+		}
+
+		void Shutdown()
+		{
+			if (!g_nim.isInitialized)
+				return;
+			iosuIoctl_pushStop(IOS_DEVICE_NIM);
+			s_nimThread.join();
+			g_nim.isInitialized = false;
 		}
 
 	}

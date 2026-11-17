@@ -9,6 +9,7 @@
 #include <png.h>
 
 #include "config/ActiveSettings.h"
+#include "util/ThreadPool/ThreadPool.h"
 
 #if BOOST_OS_WINDOWS
 #include "util/DXGIWrapper/DXGIWrapper.h"
@@ -26,7 +27,7 @@ Renderer::~Renderer() = default;
 bool Renderer::GetVRAMInfo(int& usageInMB, int& totalInMB) const
 {
 	usageInMB = totalInMB = -1;
-	
+
 #if BOOST_OS_WINDOWS
 	if (m_dxgi_wrapper)
 	{
@@ -81,7 +82,7 @@ bool Renderer::ImguiBegin(bool mainWindow)
 		WindowSystem::GetPadWindowPhysSize(w, h);
 	else
 		return false;
-		
+
 	if (w == 0 || h == 0)
 		return false;
 
@@ -135,7 +136,7 @@ void Renderer::CancelScreenshotRequest()
 
 void Renderer::SaveScreenshot(const std::vector<uint8>& rgb_data, int width, int height, bool mainWindow)
 {
-	std::thread(
+	ThreadPool::FireAndForget(
 		[=, screenshotRequested = std::exchange(m_screenshot_requested, false), onSaveScreenshot = std::exchange(m_on_save_screenshot, {})]() {
 			if (screenshotRequested && onSaveScreenshot)
 			{
@@ -143,6 +144,5 @@ void Renderer::SaveScreenshot(const std::vector<uint8>& rgb_data, int width, int
 				if (notificationMessage.has_value())
 					LatteOverlay_pushNotification(notificationMessage.value(), 2500);
 			}
-		})
-		.detach();
+		});
 }

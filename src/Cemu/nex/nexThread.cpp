@@ -7,9 +7,11 @@ std::vector<nexService*> list_queuedServices;
 
 std::vector<nexService*> list_activeNexServices;
 
+std::atomic_bool s_nexThreadStopRequested{false};
+
 void nexThread_run()
 {
-	while (true)
+	while (!s_nexThreadStopRequested)
 	{
 		// check for new services
 		mtx_queuedServices.lock();
@@ -53,16 +55,29 @@ void nexThread_run()
 
 bool _nexThreadLaunched = false;
 
+std::thread s_nexThread;
 std::thread::id nexThreadId;
 
 void nexThread_init()
 {
 	if (_nexThreadLaunched)
 		return;
-	std::thread t(nexThread_run);
-	nexThreadId = t.get_id();
-	t.detach();
+	s_nexThreadStopRequested = false;
+	s_nexThread = std::thread(nexThread_run);
+	nexThreadId = s_nexThread.get_id();
 	_nexThreadLaunched = true;
+}
+
+void nexThread_shutdown()
+{
+	std::unique_lock _l(mtx_queuedServices);
+	if (!_nexThreadLaunched)
+		return;
+	s_nexThreadStopRequested = true;
+	_l.unlock();
+	s_nexThread.join();
+	_l.lock();
+	_nexThreadLaunched = false;
 }
 
 void nexThread_registerService(nexService* service)

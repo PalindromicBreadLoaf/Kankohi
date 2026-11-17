@@ -58,6 +58,7 @@ void iosuIoctl_init();
 // for use by IOSU
 ioQueueEntry_t* iosuIoctl_getNextWithWait(uint32 deviceIndex);
 ioQueueEntry_t* iosuIoctl_getNextWithTimeout(uint32 deviceIndex, sint32 ms);
+void iosuIoctl_pushStop(uint32 deviceIndex);
 void iosuIoctl_completeRequest(ioQueueEntry_t* ioQueueEntry, uint32 returnValue);
 
 // for use by PPC

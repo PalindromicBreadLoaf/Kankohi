@@ -677,6 +677,8 @@ int iosuAct_thread()
 	{
 		uint32 ioctlReturnValue = 0;
 		ioQueueEntry_t* ioQueueEntry = iosuIoctl_getNextWithWait(IOS_DEVICE_ACT);
+		if (!ioQueueEntry)
+			break;
 		if (ioQueueEntry->request == 0)
 		{
 			if (ioQueueEntry->countIn != 1 || ioQueueEntry->countOut != 1)
@@ -871,13 +873,23 @@ int iosuAct_thread()
 	return 0;
 }
 
+std::thread s_iosuActThread;
+
 void iosuAct_init_depr()
 {
 	if (iosuAct.isInitialized)
 		return;
-	std::thread t(iosuAct_thread);
-	t.detach();
+	s_iosuActThread = std::thread(iosuAct_thread);
 	iosuAct.isInitialized = true;
+}
+
+void iosuAct_shutdown_depr()
+{
+	if (!iosuAct.isInitialized)
+		return;
+	iosuIoctl_pushStop(IOS_DEVICE_ACT);
+	s_iosuActThread.join();
+	iosuAct.isInitialized = false;
 }
 
 bool iosuAct_isInitialized()

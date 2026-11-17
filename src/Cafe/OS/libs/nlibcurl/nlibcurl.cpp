@@ -15,6 +15,7 @@
 #include "Cafe/OS/libs/coreinit/coreinit_MEM.h"
 #include "Cafe/OS/common/PPCConcurrentQueue.h"
 #include "config/CemuConfig.h"
+#include "util/ThreadPool/ThreadPool.h"
 
 namespace nlibcurl
 {
@@ -384,13 +385,13 @@ namespace nlibcurl
 	{
 		worker.ppcThread = coreinit::OSGetCurrentThread();
 		s_activeWorkerCount++;
-		std::thread([&worker, job = std::move(job)]()
+		ThreadPool::FireAndForget([&worker, job = std::move(job)]()
 		{
 			t_curlWorker = &worker;
 			worker.result = job();
 			worker.ppcQueue.push(nullptr, worker.ppcThread);
 			s_activeWorkerCount--;
-		}).detach();
+		});
 
 		while (const std::function<uint32()>* callback = worker.ppcQueue.pop(worker.ppcThread))
 		{

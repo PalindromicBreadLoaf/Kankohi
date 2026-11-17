@@ -3,6 +3,7 @@
 #include "util/helpers/fspinlock.h"
 #include "util/highresolutiontimer/HighResolutionTimer.h"
 #include "Common/cpu_features.h"
+#include "util/ThreadPool/ThreadPool.h"
 
 #if defined(ARCH_X86_64)
 #include <immintrin.h>
@@ -77,8 +78,7 @@ int PPCTimer_initThread()
 
 void PPCTimer_init()
 {
-	std::thread t(PPCTimer_initThread);
-	t.detach();
+	ThreadPool::FireAndForget(PPCTimer_initThread);
 	_rdtscLastMeasure = __rdtsc();
 }
 

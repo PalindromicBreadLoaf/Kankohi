@@ -110,6 +110,8 @@ namespace iosu
 		{
 			uint32 returnValue = 0; // Ioctl return value
 			ioQueueEntry_t* ioQueueEntry = iosuIoctl_getNextWithWait(IOS_DEVICE_MCP);
+			if (!ioQueueEntry)
+				break;
 			if (ioQueueEntry->request == IOSU_MCP_REQUEST_CEMU)
 			{
 				iosuMcpCemuRequest_t* mcpCemuRequest = (iosuMcpCemuRequest_t*)ioQueueEntry->bufferVectors[0].buffer.GetPtr();
@@ -148,13 +150,23 @@ namespace iosu
 	}
 
     // deprecated
+	std::thread s_iosuMcpThread;
+
 	void iosuMcp_init()
 	{
 		if (iosuMcp.isInitialized)
 			return;
-		std::thread t(iosuMcp_thread);
-		t.detach();
+		s_iosuMcpThread = std::thread(iosuMcp_thread);
 		iosuMcp.isInitialized = true;
+	}
+
+	void iosuMcp_shutdown()
+	{
+		if (!iosuMcp.isInitialized)
+			return;
+		iosuIoctl_pushStop(IOS_DEVICE_MCP);
+		s_iosuMcpThread.join();
+		iosuMcp.isInitialized = false;
 	}
 
 	namespace mcp

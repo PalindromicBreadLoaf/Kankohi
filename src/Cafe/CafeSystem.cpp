@@ -66,6 +66,9 @@
 // HW interfaces
 #include "Cafe/HW/SI/si.h"
 
+#include "Cemu/nex/nexThread.h"
+#include "util/ThreadPool/ThreadPool.h"
+
 #include <time.h>
 
 #if BOOST_OS_LINUX
@@ -579,7 +582,7 @@ namespace CafeSystem
 			buffer = "macOS";
 
 		platform = buffer.c_str();
-		
+
 		#elif BOOST_OS_BSD
 		#if defined(__FreeBSD__)
 		platform = "FreeBSD";
@@ -659,10 +662,15 @@ namespace CafeSystem
 		iosu::odm::Shutdown();
 		iosu::act::Stop();
         iosu::mcp::Shutdown();
+		iosu::nim::Shutdown();
+		iosu::iosuAcp_shutdown();
+		iosu::iosuMcp_shutdown();
+		iosuAct_shutdown_depr();
         iosu::fsa::Shutdown();
 		// shutdown IOSU modules
 		for(auto it = s_iosuModules.rbegin(); it != s_iosuModules.rend(); ++it)
 			(*it)->SystemExit();
+		nexThread_shutdown();
 		cemu_assert_debug(!IOSUStaticData::HasAnyAllocations()); // check for leak
         s_initialized = false;
     }
@@ -921,8 +929,7 @@ namespace CafeSystem
 		// start system
 		sSystemRunning = true;
 		WindowSystem::NotifyGameLoaded();
-		std::thread t(_LaunchTitleThread);
-		t.detach();
+		ThreadPool::FireAndForget(_LaunchTitleThread);
 	}
 
 	bool IsTitleRunning()
@@ -998,7 +1005,7 @@ namespace CafeSystem
 		CosCapabilityBits resultMask = static_cast<CosCapabilityBits>(0);
 		for (const auto& pack : GraphicPack2::GetActiveGraphicPacks())
 		{
-			for (const auto& permissionOverrides : pack->GetPermissionOverrides()) 
+			for (const auto& permissionOverrides : pack->GetPermissionOverrides())
 			{
 				if (permissionOverrides.first == group)
 					resultMask |= static_cast<CosCapabilityBits>(permissionOverrides.second);

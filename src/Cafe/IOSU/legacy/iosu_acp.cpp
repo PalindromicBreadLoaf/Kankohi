@@ -522,6 +522,8 @@ namespace iosu
 		{
 			uint32 returnValue = 0; // Ioctl return value
 			ioQueueEntry_t* ioQueueEntry = iosuIoctl_getNextWithWait(IOS_DEVICE_ACP_MAIN);
+			if (!ioQueueEntry)
+				break;
 			if (ioQueueEntry->request == IOSU_ACP_REQUEST_CEMU)
 			{
 				iosuAcpCemuRequest_t* acpCemuRequest = (iosuAcpCemuRequest_t*)ioQueueEntry->bufferVectors[0].buffer.GetPtr();
@@ -563,13 +565,23 @@ namespace iosu
 		return 0;
 	}
 
+	std::thread s_iosuAcpThread;
+
 	void iosuAcp_init()
 	{
 		if (iosuAcp.isInitialized)
 			return;
-		std::thread t(iosuAcp_thread);
-		t.detach();
+		s_iosuAcpThread = std::thread(iosuAcp_thread);
 		iosuAcp.isInitialized = true;
+	}
+
+	void iosuAcp_shutdown()
+	{
+		if (!iosuAcp.isInitialized)
+			return;
+		iosuIoctl_pushStop(IOS_DEVICE_ACP_MAIN);
+		s_iosuAcpThread.join();
+		iosuAcp.isInitialized = false;
 	}
 
 	bool iosuAcp_isInitialized()

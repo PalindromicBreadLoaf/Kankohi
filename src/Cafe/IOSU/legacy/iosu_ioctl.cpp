@@ -51,6 +51,15 @@ ioQueueEntry_t* iosuIoctl_getNextWithTimeout(uint32 deviceIndex, sint32 ms)
 	return _ioctlRingbuffer[deviceIndex].Pop();
 }
 
+// makes the next iosuIoctl_getNextWithWait for this device return nullptr
+void iosuIoctl_pushStop(uint32 deviceIndex)
+{
+	ioctlMutex.lock();
+	_ioctlRingbuffer[deviceIndex].Push(nullptr);
+	ioctlMutex.unlock();
+	_ioctlRingbufferSemaphore[deviceIndex].increment();
+}
+
 void iosuIoctl_completeRequest(ioQueueEntry_t* ioQueueEntry, uint32 returnValue)
 {
 	ioQueueEntry->returnValue = returnValue;

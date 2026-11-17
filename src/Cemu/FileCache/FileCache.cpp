@@ -16,20 +16,9 @@ struct FileCacheAsyncJob
 
 struct _FileCacheAsyncWriter
 {
-	_FileCacheAsyncWriter()
-	{
-		m_isRunning.store(true);
-		m_fileCacheThread = std::thread(&_FileCacheAsyncWriter::FileCacheThread, this);
-	}
-
 	~_FileCacheAsyncWriter()
 	{
-		if (m_isRunning.load())
-		{
-			m_isRunning.store(false);
-			m_fileCacheCondVar.notify_one();
-			m_fileCacheThread.join();
-		}
+		Shutdown();
 	}
 
 	void AddJob(FileCache* fileCache, const FileCache::FileName& name, const uint8* fileData, sint32 fileSize)
@@ -41,25 +30,40 @@ struct _FileCacheAsyncWriter
 		async.fileData = { fileData, fileData + fileSize };
 
 		std::unique_lock lock(m_fileCacheMutex);
+		if (!m_fileCacheThread.joinable())
+		{
+			m_isRunning = true;
+			m_fileCacheThread = std::thread(&_FileCacheAsyncWriter::FileCacheThread, this);
+		}
 		m_writeRequests.emplace_back(std::move(async));
 
 		lock.unlock();
 		m_fileCacheCondVar.notify_one();
 	}
 
+	void Shutdown()
+	{
+		{
+			std::lock_guard lock(m_fileCacheMutex);
+			if (!m_fileCacheThread.joinable())
+				return;
+			m_isRunning = false;
+		}
+		m_fileCacheCondVar.notify_one();
+		m_fileCacheThread.join();
+	}
+
 private:
 	void FileCacheThread()
 	{
 		SetThreadName("fileCache");
+		SetHostThreadRole(HostThreadRole::Background);
 		while (true)
 		{
 			std::unique_lock lock(m_fileCacheMutex);
-			while (m_writeRequests.empty())
-			{
-				m_fileCacheCondVar.wait(lock);
-				if (!m_isRunning.load(std::memory_order::relaxed))
-					return;
-			}
+			m_fileCacheCondVar.wait(lock, [this] { return !m_writeRequests.empty() || !m_isRunning; });
+			if (m_writeRequests.empty())
+				return;
 
 			std::vector<FileCacheAsyncJob> requestsCopy;
 			requestsCopy.swap(m_writeRequests); // fast copy & clear
@@ -76,7 +80,7 @@ private:
 	std::mutex m_fileCacheMutex;
 	std::condition_variable m_fileCacheCondVar;
 	std::vector<FileCacheAsyncJob> m_writeRequests;
-	std::atomic_bool m_isRunning;
+	bool m_isRunning{};
 }FileCacheAsyncWriter;
 
 #define FILECACHE_MAGIC_V1					0x8371b694 // used prior to Cemu 1.7.4, only supported caches up to 4GB
@@ -509,6 +513,11 @@ bool FileCache::DeleteFile(const FileName&& name)
 void FileCache::AddFileAsync(const FileName& name, const uint8* fileData, sint32 fileSize)
 {
 	FileCacheAsyncWriter.AddJob(this, name, fileData, fileSize);
+}
+
+void FileCache::ShutdownAsyncWriter()
+{
+	FileCacheAsyncWriter.Shutdown();
 }
 
 bool FileCache::_getFileDataInternal(const FileTableEntry* entry, std::vector<uint8>& dataOut)

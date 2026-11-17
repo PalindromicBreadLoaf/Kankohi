@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 PalindromicBreadLoaf
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "Common/FileStream.h"
 #include "Common/switch/HorizonDiagnostics.h"
 #include "config/LaunchSettings.h"
 
@@ -46,6 +47,7 @@ __attribute__((constructor(101))) static void InitDiagnostics()
 
 int main(int argc, char* argv[])
 {
+	std::atexit(FileStream::FlushAllWrites);
 	int exitCode = LaunchSettings::HandleCommandline(argc, argv).value_or(0);
 
 	HorizonDiagnostics::Log("Reached main, exiting with %d", exitCode);

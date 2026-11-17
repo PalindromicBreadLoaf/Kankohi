@@ -41,8 +41,8 @@ elseif(NINTENDO_SWITCH)
 		unix/fast_float.h
 		unix/platform.cpp
 		unix/platform.h
-		unix/FileStream_unix.cpp
-		unix/FileStream_unix.h
+		switch/FileStream_switch.cpp
+		switch/FileStream_switch.h
 		switch/platform.h
 		ExceptionHandler/ExceptionHandler_switch.cpp
 	)

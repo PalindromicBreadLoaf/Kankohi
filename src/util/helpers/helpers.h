@@ -219,6 +219,19 @@ size_t RemoveDuplicatesKeepOrder(std::vector<T>& vec)
 
 void SetThreadName(const char* name);
 
+enum class HostThreadRole
+{
+	GuestCore0,
+	GuestCore1,
+	GuestCore2,
+	Gpu,
+	Compiler,
+	Input,
+	Background,
+};
+
+void SetHostThreadRole(HostThreadRole role);
+
 inline uint64 MakeU64(uint32 high, uint32 low)
 {
 	return ((uint64)high << 32) | ((uint64)low);

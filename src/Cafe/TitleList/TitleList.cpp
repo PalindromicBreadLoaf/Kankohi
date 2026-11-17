@@ -259,6 +259,7 @@ void CafeTitleList::AddTitleFromPath(fs::path path)
 bool CafeTitleList::RefreshWorkerThread()
 {
 	SetThreadName("TitleListWorker");
+	SetHostThreadRole(HostThreadRole::Background);
 	while (sTLRefreshRequests.load())
 	{
 		sTLRefreshRequests.store(0);

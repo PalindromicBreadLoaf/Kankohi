@@ -114,28 +114,25 @@ namespace
 		return R_SUCCEEDED(svcQueryMemory(&info, &pageInfo, stackMem)) && info.attr != 0;
 	}
 
-	void ClampCurrentThread()
+	void SpreadCurrentThread()
 	{
 		s32 idealCore;
 		u64 mask;
 		if (R_FAILED(svcGetThreadCoreMask(&idealCore, &mask, CUR_THREAD_HANDLE)))
 			return;
 		const u64 allowed = HorizonDiagnostics::GetApplicationCoreMask();
-		u64 clamped = mask & allowed;
-		if (clamped == 0)
-			clamped = allowed;
-		if (clamped == mask)
+		if (mask == allowed)
 			return;
-		if (idealCore < 0 || ((clamped >> idealCore) & 1) == 0)
-			idealCore = __builtin_ctzll(clamped);
-		svcSetThreadCoreMask(CUR_THREAD_HANDLE, idealCore, clamped);
+		if (idealCore < 0 || ((allowed >> idealCore) & 1) == 0)
+			idealCore = __builtin_ctzll(allowed);
+		svcSetThreadCoreMask(CUR_THREAD_HANDLE, idealCore, allowed);
 	}
 
 	void* WrappedThreadStart(void* param)
 	{
 		const ThreadStart threadStart = *(ThreadStart*)param;
 		delete (ThreadStart*)param;
-		ClampCurrentThread();
+		SpreadCurrentThread();
 		if (const Thread* self = threadGetSelf())
 		{
 			std::lock_guard lock(s_liveMutex);
@@ -312,5 +309,18 @@ namespace HorizonDiagnostics
 	{
 		const uint64_t mask = GetProcessCoreMask() & ~SYSTEM_CORE_MASK;
 		return mask ? mask : 0x7;
+	}
+
+	void PlaceCurrentThread(const char* role, int idealCore, uint64_t mask, int priority)
+	{
+		mask &= GetProcessCoreMask();
+		if (mask == 0)
+			mask = GetApplicationCoreMask();
+		if (idealCore < 0 || ((mask >> idealCore) & 1) == 0)
+			idealCore = __builtin_ctzll(mask);
+		const Result maskResult = svcSetThreadCoreMask(CUR_THREAD_HANDLE, idealCore, mask);
+		const Result priorityResult = svcSetThreadPriority(CUR_THREAD_HANDLE, priority);
+		Log("thread %s: core %d mask %#lx priority %d (%#x, %#x)", role, idealCore, mask, priority, maskResult,
+			priorityResult);
 	}
 }

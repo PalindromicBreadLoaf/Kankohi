@@ -1356,6 +1356,8 @@ namespace coreinit
 	void OSSchedulerCoreEmulationThread(void* _assignedCoreIndex)
 	{
 		SetThreadName(fmt::format("OSSched[core={}]", (uintptr_t)_assignedCoreIndex).c_str());
+		constexpr HostThreadRole guestCoreRoles[] = {HostThreadRole::GuestCore0, HostThreadRole::GuestCore1, HostThreadRole::GuestCore2};
+		SetHostThreadRole(guestCoreRoles[(uintptr_t)_assignedCoreIndex]);
 		t_assignedCoreIndex = (sint32)(uintptr_t)_assignedCoreIndex;
 
 		ConfigureHostFloatingPointEnvironment();

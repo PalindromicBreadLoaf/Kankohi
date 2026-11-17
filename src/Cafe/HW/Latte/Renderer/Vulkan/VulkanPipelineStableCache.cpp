@@ -414,6 +414,7 @@ bool VulkanPipelineStableCache::DeserializePipeline(MemStreamReader& memReader, 
 int VulkanPipelineStableCache::CompilerThread()
 {
 	SetThreadName("plCacheCompiler");
+	SetHostThreadRole(HostThreadRole::Compiler);
 	while (m_numCompilationThreads != 0)
 	{
 		std::vector<uint8> pipelineData = m_compilationQueue.pop();
@@ -428,6 +429,7 @@ int VulkanPipelineStableCache::CompilerThread()
 void VulkanPipelineStableCache::WorkerThread()
 {
 	SetThreadName("plCacheWriter");
+	SetHostThreadRole(HostThreadRole::Background);
 	while (true)
 	{
 		CachedPipeline* job;

@@ -16,6 +16,10 @@
 #include <TlHelp32.h>
 #endif
 
+#if defined(__SWITCH__)
+#include "Common/switch/HorizonDiagnostics.h"
+#endif
+
 std::string& ltrim(std::string& str, const std::string& chars)
 {
 	str.erase(0, str.find_first_not_of(chars));
@@ -153,6 +157,45 @@ void SetThreadName(const char* name)
 	pthread_setname_np(pthread_self(), std::string{name}.substr(0,15).c_str());
 #endif
 }
+
+#if defined(__SWITCH__)
+void SetHostThreadRole(HostThreadRole role)
+{
+	constexpr int NORMAL_PRIORITY = 44;
+	const uint64 appCores = HorizonDiagnostics::GetApplicationCoreMask();
+	const uint64 systemCore = HorizonDiagnostics::GetProcessCoreMask() & ~appCores;
+	const uint64 lightCores = systemCore ? systemCore : appCores;
+	const int lightCore = 63 - std::countl_zero(lightCores);
+	switch (role)
+	{
+	case HostThreadRole::GuestCore0:
+		HorizonDiagnostics::PlaceCurrentThread("guest core 0", 0, 1 << 0, NORMAL_PRIORITY);
+		break;
+	case HostThreadRole::GuestCore1:
+		HorizonDiagnostics::PlaceCurrentThread("guest core 1", 2, 1 << 2, NORMAL_PRIORITY);
+		break;
+	case HostThreadRole::GuestCore2:
+		HorizonDiagnostics::PlaceCurrentThread("guest core 2", 0, 1 << 0, NORMAL_PRIORITY);
+		break;
+	case HostThreadRole::Gpu:
+		HorizonDiagnostics::PlaceCurrentThread("gpu", 1, 1 << 1, NORMAL_PRIORITY);
+		break;
+	case HostThreadRole::Compiler:
+		HorizonDiagnostics::PlaceCurrentThread("compiler", 2, (1 << 1) | (1 << 2), NORMAL_PRIORITY + 1);
+		break;
+	case HostThreadRole::Input:
+		HorizonDiagnostics::PlaceCurrentThread("input", lightCore, lightCores, NORMAL_PRIORITY - 4);
+		break;
+	case HostThreadRole::Background:
+		HorizonDiagnostics::PlaceCurrentThread("background", lightCore, lightCores, NORMAL_PRIORITY);
+		break;
+	}
+}
+#else
+void SetHostThreadRole(HostThreadRole role)
+{
+}
+#endif
 
 #if BOOST_OS_WINDOWS
 std::pair<DWORD, DWORD> GetWindowsVersion()

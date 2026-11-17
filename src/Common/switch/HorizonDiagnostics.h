@@ -31,4 +31,6 @@ namespace HorizonDiagnostics
 	// The allowed cores the process has
 	uint64_t GetApplicationCoreMask();
 	uint64_t GetProcessCoreMask();
+
+	void PlaceCurrentThread(const char* role, int idealCore, uint64_t mask, int priority);
 }

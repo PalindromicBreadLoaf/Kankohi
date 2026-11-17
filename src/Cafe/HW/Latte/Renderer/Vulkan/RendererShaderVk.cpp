@@ -157,6 +157,7 @@ public:
 	void CompilerThreadFunc()
 	{
 		SetThreadName("vkShaderComp");
+		SetHostThreadRole(HostThreadRole::Compiler);
 		while (m_threadsActive.load(std::memory_order::relaxed))
 		{
 			s_compilationQueueCount.decrementWithWait();

@@ -457,6 +457,7 @@ void PPCRecompiler_recompileAtAddress(uint32 address)
 void PPCRecompiler_thread()
 {
 	SetThreadName("PPCRecompiler");
+	SetHostThreadRole(HostThreadRole::Compiler);
 #if PPCREC_FORCE_SYNCHRONOUS_COMPILATION
 	return;
 #endif

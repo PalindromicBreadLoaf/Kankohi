@@ -552,6 +552,8 @@ namespace CafeSystem
 		std::string windowsVersionName = GetWindowsNamedVersion(buildNumber);
 		buffer = fmt::format("{} (Build {})", windowsVersionName, buildNumber);
 		platform = buffer.c_str();
+		#elif defined(__SWITCH__)
+		platform = "Horizon";
 		#elif BOOST_OS_LINUX
 		if (getenv ("APPIMAGE"))
 			platform = "Linux (AppImage)";

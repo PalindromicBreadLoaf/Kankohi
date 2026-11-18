@@ -13,7 +13,7 @@ embedded/resources.cpp
 embedded/resources.h
 )
 
-if(UNIX)
+if(UNIX OR NINTENDO_SWITCH)
     if(NOT APPLE)
         target_sources(CemuResource PRIVATE embedded/fontawesome.S)
     else()

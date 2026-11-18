@@ -265,9 +265,25 @@ if(NINTENDO_SWITCH)
 		AUTHOR "Cemu Contributors & PalindromicBreadLoaf"
 		VERSION "${EMULATOR_VERSION_MAJOR}.${EMULATOR_VERSION_MINOR}.${EMULATOR_VERSION_PATCH}"
 	)
+	set(SWITCH_ROMFS_DIR "${CMAKE_BINARY_DIR}/romfs")
+	set(SWITCH_ROMFS_STAMP "${CMAKE_BINARY_DIR}/romfs.stamp")
+	file(GLOB_RECURSE SWITCH_ROMFS_INPUTS CONFIGURE_DEPENDS
+		"${CMAKE_SOURCE_DIR}/bin/gameProfiles/*"
+		"${CMAKE_SOURCE_DIR}/bin/resources/sharedFonts/*")
+	file(MAKE_DIRECTORY "${SWITCH_ROMFS_DIR}")
+	add_custom_command(OUTPUT "${SWITCH_ROMFS_STAMP}"
+		COMMAND "${CMAKE_COMMAND}" -E rm -rf "${SWITCH_ROMFS_DIR}"
+		COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/bin/gameProfiles" "${SWITCH_ROMFS_DIR}/gameProfiles"
+		COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/bin/resources/sharedFonts" "${SWITCH_ROMFS_DIR}/resources/sharedFonts"
+		COMMAND "${CMAKE_COMMAND}" -E touch "${SWITCH_ROMFS_STAMP}"
+		DEPENDS ${SWITCH_ROMFS_INPUTS}
+		VERBATIM)
+	dkp_add_asset_target(kankohi_romfs "${SWITCH_ROMFS_DIR}")
+	set_target_properties(kankohi_romfs PROPERTIES DKP_ASSET_FILES "${SWITCH_ROMFS_STAMP}")
 	nx_create_nro(CemuBin
 		OUTPUT "${CMAKE_BINARY_DIR}/kankohi.nro"
 		NACP "${CMAKE_CURRENT_BINARY_DIR}/kankohi.nacp"
+		ROMFS kankohi_romfs
 	)
 endif()
 

@@ -647,6 +647,7 @@ endif()
 target_link_libraries(CemuCafe PRIVATE
 	CemuCommon
   CemuGui
+  CemuResource
   ZArchive::zarchive
   imguiImpl
   pugixml::pugixml

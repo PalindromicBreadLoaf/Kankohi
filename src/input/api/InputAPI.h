@@ -17,6 +17,8 @@ namespace InputAPI
 		WGIGamepad,
 		WGIRawController,
 
+		Switch,
+
 		MAX
 	};
 
@@ -42,6 +44,8 @@ namespace InputAPI
 			return "WGIRawController";
 		case SDLController:
 			return "SDLController";
+		case Switch:
+			return "Switch";
 		default:
 			break;
 		}
@@ -65,9 +69,11 @@ namespace InputAPI
 			return DSUClient;
 		else if (str == to_string(SDLController))
 			return SDLController;
+		else if (str == to_string(Switch))
+			return Switch;
 		else if (str == "DSU") // legacy
 			return DSUClient;
-		
+
 		//else if (str == "WGIGamepad")
 		//	return WGIGamepad;
 		//

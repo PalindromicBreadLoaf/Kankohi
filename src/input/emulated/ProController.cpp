@@ -4,6 +4,9 @@
 #ifdef HAS_SDL
 #include "input/api/SDL/SDLController.h"
 #endif
+#ifdef __SWITCH__
+#include "input/api/Switch/SwitchController.h"
+#endif
 
 ProController::ProController(size_t player_index)
 	: WPADController(player_index, kDataFormat_URCC)
@@ -220,6 +223,45 @@ bool ProController::set_default_mapping(const std::shared_ptr<ControllerBase>& c
 				{kButtonId_StickR_Right, kRotationXP},
 			};
 		}
+		break;
+	}
+#endif
+#ifdef __SWITCH__
+	case InputAPI::Switch:
+	{
+		mapping =
+		{
+			{kButtonId_A, kSwitchButton_A},
+			{kButtonId_B, kSwitchButton_B},
+			{kButtonId_X, kSwitchButton_X},
+			{kButtonId_Y, kSwitchButton_Y},
+
+			{kButtonId_L, kSwitchButton_L},
+			{kButtonId_R, kSwitchButton_R},
+			{kButtonId_ZL, kSwitchButton_ZL},
+			{kButtonId_ZR, kSwitchButton_ZR},
+
+			{kButtonId_Plus, kSwitchButton_Plus},
+			{kButtonId_Minus, kSwitchButton_Minus},
+
+			{kButtonId_Up, kSwitchButton_Up},
+			{kButtonId_Down, kSwitchButton_Down},
+			{kButtonId_Left, kSwitchButton_Left},
+			{kButtonId_Right, kSwitchButton_Right},
+
+			{kButtonId_StickL, kSwitchButton_StickL},
+			{kButtonId_StickR, kSwitchButton_StickR},
+
+			{kButtonId_StickL_Up, kAxisYN},
+			{kButtonId_StickL_Down, kAxisYP},
+			{kButtonId_StickL_Left, kAxisXN},
+			{kButtonId_StickL_Right, kAxisXP},
+
+			{kButtonId_StickR_Up, kRotationYN},
+			{kButtonId_StickR_Down, kRotationYP},
+			{kButtonId_StickR_Left, kRotationXN},
+			{kButtonId_StickR_Right, kRotationXP},
+		};
 		break;
 	}
 #endif

@@ -87,6 +87,15 @@ if (HAS_WIIMOTE)
 endif ()
 
 
+if(NINTENDO_SWITCH)
+	target_sources(CemuInput PRIVATE
+		api/Switch/SwitchController.cpp
+		api/Switch/SwitchController.h
+		api/Switch/SwitchControllerProvider.cpp
+		api/Switch/SwitchControllerProvider.h
+	)
+endif()
+
 if(ENABLE_SDL)
 	target_sources(CemuInput PRIVATE
 		api/SDL/SDLController.cpp

@@ -97,6 +97,7 @@ if(NINTENDO_SWITCH)
 		Common/switch/HorizonDiagnostics.cpp
 		Common/switch/HorizonException.cpp
 		Common/switch/HorizonExceptionEntry.S
+		Common/switch/HorizonInput.cpp
 		Common/switch/HorizonLibcShims.cpp
 		Common/switch/HorizonMalloc.c
 		Common/switch/HorizonMemory.cpp

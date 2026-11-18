@@ -22,6 +22,10 @@
 #include "input/api/SDL/SDLController.h"
 #endif
 
+#ifdef __SWITCH__
+#include "input/api/Switch/SwitchController.h"
+#endif
+
 ControllerPtr ControllerFactory::CreateController(InputAPI::Type api, std::string_view uuid,
                                                   std::string_view display_name)
 {
@@ -103,6 +107,13 @@ ControllerPtr ControllerFactory::CreateController(InputAPI::Type api, std::strin
 		{
 			const auto index = ConvertString<uint32>(uuid);
 			return std::make_shared<NativeWiimoteController>(index);
+		}
+#endif
+#ifdef __SWITCH__
+	case InputAPI::Switch:
+		{
+			const auto index = ConvertString<sint32>(uuid);
+			return std::make_shared<SwitchController>(index);
 		}
 #endif
 	default:

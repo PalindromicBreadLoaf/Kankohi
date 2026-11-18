@@ -14,6 +14,8 @@
 #include "config/CemuConfig.h"
 #include "config/NetworkSettings.h"
 #include "gui/interface/WindowSystem.h"
+#include "input/InputManager.h"
+#include "input/api/Switch/SwitchController.h"
 
 #include <condition_variable>
 #include <initializer_list>
@@ -132,6 +134,22 @@ namespace
 		return true;
 	}
 
+	void CreateDefaultController()
+	{
+		InputManager& input = InputManager::instance();
+		if (input.get_controller(0))
+			return;
+		auto controller = std::make_shared<SwitchController>(0);
+		controller->set_use_motion(true);
+		controller->set_rumble(0.5f);
+		const EmulatedControllerPtr gamepad = input.set_controller(0, EmulatedController::Type::VPAD, controller);
+		if (!gamepad)
+			return;
+		gamepad->set_default_mapping(controller);
+		input.save();
+		cemuLog_log(LogType::Force, "Mapped the GamePad to player 1's controller");
+	}
+
 	void SystemImplementationSwitch::ServiceRecreate()
 	{
 		std::unique_lock lock(m_mutex);
@@ -176,6 +194,7 @@ namespace EmulationSwitch
 		ActiveSettings::Init();
 		LatteOverlay_init();
 		CemuCommonInit();
+		CreateDefaultController();
 		if (!InitializeGlobalVulkan())
 		{
 			cemuLog_log(LogType::Force, "Vulkan is unavailable");

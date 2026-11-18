@@ -359,7 +359,11 @@ inline void _mm_pause()
 inline uint64 __rdtsc()
 {
     uint64 t;
+#if defined(__SWITCH__)
+    asm volatile("mrs %0, cntpct_el0" : "=r" (t));
+#else
     asm volatile("mrs %0, cntvct_el0" : "=r" (t));
+#endif
     return t;
 }
 

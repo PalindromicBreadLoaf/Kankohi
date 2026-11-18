@@ -93,6 +93,7 @@ endif()
 
 if(NINTENDO_SWITCH)
 	set(HORIZON_SOURCES
+		Common/switch/HorizonApplet.cpp
 		Common/switch/HorizonDiagnostics.cpp
 		Common/switch/HorizonException.cpp
 		Common/switch/HorizonExceptionEntry.S
@@ -103,6 +104,7 @@ if(NINTENDO_SWITCH)
 	)
 	target_sources(CemuBin PRIVATE
 		${HORIZON_SOURCES}
+		switch/EmulationSwitch.cpp
 		switch/MainSwitch.cpp
 		switch/WindowSystemSwitch.cpp
 	)

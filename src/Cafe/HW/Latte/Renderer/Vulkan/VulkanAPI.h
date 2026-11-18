@@ -148,6 +148,10 @@ VKFUNC_INSTANCE(vkCreateWin32SurfaceKHR);
 VKFUNC_INSTANCE(vkCreateMetalSurfaceEXT);
 #endif
 
+#if defined(__SWITCH__)
+VKFUNC_INSTANCE(vkCreateViSurfaceNN);
+#endif
+
 VKFUNC_INSTANCE(vkDestroySurfaceKHR);
 VKFUNC_DEVICE(vkCreateSwapchainKHR);
 VKFUNC_DEVICE(vkDestroySwapchainKHR);

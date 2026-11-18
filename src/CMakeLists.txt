@@ -44,6 +44,10 @@ elseif(UNIX)
     add_compile_options(-Wno-multichar -Wno-invalid-offsetof -Wno-switch -Wno-ignored-attributes -Wno-deprecated-enum-enum-conversion)
 endif()
 
+if(NINTENDO_SWITCH AND ENABLE_VULKAN)
+	add_compile_definitions(VK_USE_PLATFORM_VI_NN)
+endif()
+
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 # on msvc we can reuse the PCH from CemuCommon, on other platforms it's not straight forward to reuse the PCH so we opt out of it

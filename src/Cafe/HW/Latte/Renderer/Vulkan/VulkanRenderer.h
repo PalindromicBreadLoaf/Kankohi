@@ -219,6 +219,9 @@ public:
 	static VkSurfaceKHR CreateWaylandSurface(VkInstance instance, wl_display* display, wl_surface* surface);
 	#endif
 #endif
+#if defined(__SWITCH__)
+	static VkSurfaceKHR CreateViSurface(VkInstance instance, void* window);
+#endif
 
 	static VkSurfaceKHR CreateFramebufferSurface(VkInstance instance, struct WindowSystem::WindowHandleInfo& windowInfo);
 

@@ -129,6 +129,8 @@ std::vector<VulkanRenderer::DeviceInfo> VulkanRenderer::GetDevices()
 	#endif
 	#elif BOOST_OS_MACOS
 	requiredExtensions.emplace_back(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
+	#elif defined(__SWITCH__)
+	requiredExtensions.emplace_back(VK_NN_VI_SURFACE_EXTENSION_NAME);
 	#endif
 
 	VkApplicationInfo app_info{};
@@ -1540,6 +1542,8 @@ std::vector<const char*> VulkanRenderer::CheckInstanceExtensionSupport(FeatureCo
 	#endif
 	#elif BOOST_OS_MACOS
 	requiredInstanceExtensions.emplace_back(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
+	#elif defined(__SWITCH__)
+	requiredInstanceExtensions.emplace_back(VK_NN_VI_SURFACE_EXTENSION_NAME);
 	#endif
 	if (cemuLog_isLoggingEnabled(LogType::VulkanValidation))
 		requiredInstanceExtensions.emplace_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
@@ -1677,6 +1681,25 @@ VkSurfaceKHR VulkanRenderer::CreateWaylandSurface(VkInstance instance, wl_displa
 #endif // HAS_WAYLAND
 #endif // BOOST_OS_LINUX
 
+#if defined(__SWITCH__)
+VkSurfaceKHR VulkanRenderer::CreateViSurface(VkInstance instance, void* window)
+{
+	VkViSurfaceCreateInfoNN sci{};
+	sci.sType = VK_STRUCTURE_TYPE_VI_SURFACE_CREATE_INFO_NN;
+	sci.window = window;
+
+	VkSurfaceKHR result;
+	VkResult err;
+	if ((err = vkCreateViSurfaceNN(instance, &sci, nullptr, &result)) != VK_SUCCESS)
+	{
+		cemuLog_log(LogType::Force, "Cannot create a VI Vulkan surface: {}", (sint32)err);
+		throw std::runtime_error(fmt::format("Cannot create a VI Vulkan surface: {}", err));
+	}
+
+	return result;
+}
+#endif
+
 VkSurfaceKHR VulkanRenderer::CreateFramebufferSurface(VkInstance instance, WindowSystem::WindowHandleInfo& windowInfo)
 {
 #if BOOST_OS_WINDOWS
@@ -1691,6 +1714,8 @@ VkSurfaceKHR VulkanRenderer::CreateFramebufferSurface(VkInstance instance, Windo
 	return {};
 #elif BOOST_OS_MACOS
 	return CreateCocoaSurface(instance, windowInfo.surface);
+#elif defined(__SWITCH__)
+	return CreateViSurface(instance, windowInfo.surface);
 #endif
 }
 

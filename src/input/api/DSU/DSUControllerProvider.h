@@ -8,7 +8,11 @@
 #include "util/Socket/Socket.h"
 
 #ifndef HAS_DSU
+#ifdef __SWITCH__
+#define HAS_DSU 0
+#else
 #define HAS_DSU 1
+#endif
 #endif
 
 // #define DEBUG_DSU_CLIENT

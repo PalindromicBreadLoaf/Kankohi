@@ -6,6 +6,9 @@
 #if BOOST_OS_LINUX || BOOST_OS_MACOS || BOOST_OS_BSD
 #include <dlfcn.h>
 #endif
+#if defined(__SWITCH__)
+#include "config/ActiveSettings.h"
+#endif
 
 #define VULKAN_API_CPU_BENCHMARK 0	// if 1, Cemu will log the CPU time spent per Vulkan API function
 
@@ -152,7 +155,11 @@ bool InitializeGlobalVulkan()
 		return true;
 
 	setenv("NVK_I_WANT_A_BROKEN_VULKAN_DRIVER", "1", 1);
-	setenv("MESA_SHADER_CACHE_DISABLE", "1", 1);
+	std::error_code ec;
+	const fs::path mesaCachePath = ActiveSettings::GetCachePath("shaderCache/driver/nvk");
+	fs::create_directories(mesaCachePath, ec);
+	setenv("MESA_SHADER_CACHE_DIR", _pathToUtf8(mesaCachePath).c_str(), 1);
+	setenv("MESA_SHADER_CACHE_DISABLE", "false", 1);
 
 	#define VKFUNC_INIT
 	#include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"

@@ -30,6 +30,13 @@ if(ENABLE_CUBEB)
 	#add_compile_definitions(HAS_CUBEB)
 endif()
 
+if(NINTENDO_SWITCH)
+	target_sources(CemuAudio PRIVATE
+		AudrenAPI.cpp
+		AudrenAPI.h
+	)
+endif()
+
 target_include_directories(CemuAudio PUBLIC "../")
 
 target_link_libraries(CemuAudio PRIVATE

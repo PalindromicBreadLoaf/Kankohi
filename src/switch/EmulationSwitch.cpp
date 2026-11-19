@@ -10,6 +10,7 @@
 #include "Cafe/TitleList/TitleList.h"
 #include "Cemu/ncrypto/ncrypto.h"
 #include "Common/switch/HorizonApplet.h"
+#include "audio/AudrenAPI.h"
 #include "config/ActiveSettings.h"
 #include "config/CemuConfig.h"
 #include "config/NetworkSettings.h"
@@ -194,6 +195,7 @@ namespace EmulationSwitch
 		ActiveSettings::Init();
 		LatteOverlay_init();
 		CemuCommonInit();
+		IAudioAPI::InitializeStatic();
 		CreateDefaultController();
 		if (!InitializeGlobalVulkan())
 		{
@@ -211,6 +213,7 @@ namespace EmulationSwitch
 			return;
 		StopTitle();
 		CafeSystem::Shutdown();
+		AudrenAPI::Destroy();
 		GetConfigHandle().Save();
 		s_initialised = false;
 	}

@@ -227,6 +227,7 @@ enum class HostThreadRole
 	Gpu,
 	Compiler,
 	Input,
+	Audio,
 	Frontend,
 	Background,
 };

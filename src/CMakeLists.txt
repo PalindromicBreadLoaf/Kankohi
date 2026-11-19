@@ -94,6 +94,7 @@ endif()
 if(NINTENDO_SWITCH)
 	set(HORIZON_SOURCES
 		Common/switch/HorizonApplet.cpp
+		Common/switch/HorizonAudio.cpp
 		Common/switch/HorizonDiagnostics.cpp
 		Common/switch/HorizonException.cpp
 		Common/switch/HorizonExceptionEntry.S

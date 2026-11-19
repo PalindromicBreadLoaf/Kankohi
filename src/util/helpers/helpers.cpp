@@ -186,6 +186,9 @@ void SetHostThreadRole(HostThreadRole role)
 	case HostThreadRole::Input:
 		HorizonDiagnostics::PlaceCurrentThread("input", lightCore, lightCores, NORMAL_PRIORITY - 4);
 		break;
+	case HostThreadRole::Audio:
+		HorizonDiagnostics::PlaceCurrentThread("audio", lightCore, lightCores, NORMAL_PRIORITY - 6);
+		break;
 	case HostThreadRole::Frontend:
 		HorizonDiagnostics::PlaceCurrentThread("frontend", lightCore, lightCores, NORMAL_PRIORITY);
 		break;

@@ -99,6 +99,7 @@ if(NINTENDO_SWITCH)
 		Common/switch/HorizonException.cpp
 		Common/switch/HorizonExceptionEntry.S
 		Common/switch/HorizonInput.cpp
+		Common/switch/HorizonKeyboard.cpp
 		Common/switch/HorizonLibcShims.cpp
 		Common/switch/HorizonMalloc.c
 		Common/switch/HorizonMemory.cpp
@@ -107,6 +108,7 @@ if(NINTENDO_SWITCH)
 	target_sources(CemuBin PRIVATE
 		${HORIZON_SOURCES}
 		switch/EmulationSwitch.cpp
+		switch/KeyboardSwitch.cpp
 		switch/MainSwitch.cpp
 		switch/WindowSystemSwitch.cpp
 	)

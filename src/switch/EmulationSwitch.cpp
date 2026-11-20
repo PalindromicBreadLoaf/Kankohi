@@ -17,6 +17,7 @@
 #include "gui/interface/WindowSystem.h"
 #include "input/InputManager.h"
 #include "input/api/Switch/SwitchController.h"
+#include "switch/KeyboardSwitch.h"
 
 #include <condition_variable>
 #include <initializer_list>
@@ -251,6 +252,7 @@ namespace EmulationSwitch
 		if (!CreateRenderer())
 			return "Failed to initialise the Vulkan renderer.";
 		s_systemImplementation.m_exited = false;
+		KeyboardSwitch::Install();
 		cemuLog_log(LogType::Force, "Launching {}", CafeSystem::GetForegroundTitleName());
 		CafeSystem::LaunchForegroundTitle();
 		return {};
@@ -259,6 +261,7 @@ namespace EmulationSwitch
 	void StopTitle()
 	{
 		s_systemImplementation.ServiceRecreate();
+		KeyboardSwitch::Cancel();
 		CafeSystem::ShutdownTitle();
 		g_renderer.reset();
 	}
@@ -266,6 +269,7 @@ namespace EmulationSwitch
 	void Update()
 	{
 		s_systemImplementation.ServiceRecreate();
+		KeyboardSwitch::Pump();
 	}
 
 	bool HasTitleExited()

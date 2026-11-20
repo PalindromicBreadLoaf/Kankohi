@@ -1,4 +1,5 @@
 #include "Cafe/OS/common/OSCommon.h"
+#include "Cafe/OS/libs/swkbd/swkbd.h"
 #include "Cafe/OS/libs/coreinit/coreinit_FS.h"
 #include "Cafe/OS/libs/gx2/GX2.h"
 #include "Cafe/HW/Latte/Renderer/Renderer.h"
@@ -6,7 +7,10 @@
 #include <imgui.h>
 #include "imgui/imgui_extension.h"
 #include "util/helpers/helpers.h"
+#include "util/helpers/StringHelpers.h"
 #include "resource/IconsFontAwesome5.h"
+
+#include <boost/nowide/utf/convert.hpp>
 
 constinit COSStaticData s_swkbdStaticData;
 
@@ -17,7 +21,7 @@ constinit COSStaticData s_swkbdStaticData;
 #define SWKBD_STATE_DISPLAYED			(2)	// visible
 #define SWKBD_STATE_DISAPPEARING		(3)	// fade-out ?
 
-typedef struct  
+typedef struct
 {
 	uint32 ukn00; // constructor?
 	uint32 ukn04; // destructor?
@@ -25,7 +29,7 @@ typedef struct
 	MEMPTR<void> changeString; // some function address
 }SwkbdIEventReceiverVTable_t;
 
-typedef struct  
+typedef struct
 {
 	MEMPTR<SwkbdIEventReceiverVTable_t> vTable;
 	// todo - more elements? (currently separated from this struct)
@@ -41,7 +45,7 @@ struct swkbdReceiverArg_t
 	sint32be selectFrom;
 };
 
-typedef struct  
+typedef struct
 {
 	uint32 ukn000;
 	uint32 controllerType;
@@ -66,7 +70,7 @@ typedef struct
 	swkbdReceiverArg_t receiverArg;
 }SwkbdKeyboardArg_t;
 
-typedef struct  
+typedef struct
 {
 	// this structure resides in PPC addressable memory space
 	wchar_t formStringBuffer[SWKBD_FORM_STRING_MAX_LENGTH];
@@ -76,6 +80,9 @@ typedef struct
 	bool isActive; // set when SwkbdAppearInputForm() is called
 	//bool isDisplayed; // set when keyboard is rendering
 	bool decideButtonWasPressed; // set to false when keyboard appears, and set to true when enter is pressed. Remains on true after the keyboard is disappeared (todo: Investigate how this really works)
+	bool decideCancelButtonWasPressed;
+	bool cancelButtonPolled;
+	sint32 calcsSinceCancel;
 	// keyboard only mode (no input form)
 	bool keyboardOnlyMode;
 	SwkbdKeyboardArg_t keyboardArg;
@@ -91,6 +98,14 @@ sint32 isNeedCalcSubThreadFont = 0;
 sint32 isNeedCalcSubThreadPredict = 0;
 
 CafeStaticVar<swkbdInternalState_t> swkbdInternalState{s_swkbdStaticData};
+
+static SwkbdHostKeyboard s_hostKeyboard = nullptr;
+static std::string s_hostGuideText;
+
+void swkbd_setHostKeyboard(SwkbdHostKeyboard keyboard)
+{
+	s_hostKeyboard = keyboard;
+}
 
 void SwkbdCreate(uint8* workMemory, uint32 regionType, uint32 unk, coreinit::FSClient_t* fsClient)
 {
@@ -159,7 +174,7 @@ uint32 SwkbdSetReceiver(const swkbdReceiverArg_t* receiverArg)
 	return 0;
 }
 
-typedef struct  
+typedef struct
 {
 	/* +0x00 */ uint32 ukn00;
 	/* +0x04 */ uint32 ukn04;
@@ -188,11 +203,51 @@ typedef struct
 
 static_assert(offsetof(swkbdAppearArg_t, cursorIndex) == 0xC4, "appearArg.cursorIndex has invalid offset");
 
+void swkbd_inputStringChanged();
+void swkbd_finishInput();
+
+sint32 swkbd_getMaxLength()
+{
+	if (!swkbdInternalState->keyboardOnlyMode)
+		return swkbdInternalState->maxTextLength;
+	uint32 stringBufferSize = swkbdInternalState->keyboardArg.receiverArg.stringBufSize;
+	if (stringBufferSize > 1)
+		return std::min<sint32>(stringBufferSize - 1, SWKBD_FORM_STRING_MAX_LENGTH - 1); // don't count null-terminator
+	return 0;
+}
+
+void swkbd_runHostKeyboard()
+{
+	std::u16string initialText(swkbdInternalState->formStringBuffer, swkbdInternalState->formStringBuffer + swkbdInternalState->formStringLength);
+	SwkbdHostKeyboardRequest request;
+	request.initialText = boost::nowide::utf::convert_string<char>(initialText.data(), initialText.data() + initialText.size());
+	request.guideText = s_hostGuideText;
+	request.maxLength = swkbd_getMaxLength();
+
+	std::optional<std::string> text = s_hostKeyboard(request);
+	swkbdInternalState->decideCancelButtonWasPressed = !text;
+	swkbdInternalState->cancelButtonPolled = false;
+	swkbdInternalState->calcsSinceCancel = 0;
+	if (!text)
+		return;
+
+	std::u16string utf16 = boost::nowide::utf::convert_string<char16_t>(text->data(), text->data() + text->size());
+	sint32 length = std::min<sint32>(utf16.size(), request.maxLength);
+	if (length > 0 && length < (sint32)utf16.size() && (utf16[length - 1] & 0xFC00) == 0xD800)
+		length--; // don't split a surrogate pair
+	std::copy_n(utf16.begin(), length, swkbdInternalState->formStringBuffer);
+	swkbdInternalState->formStringBuffer[length] = '\0';
+	swkbdInternalState->formStringLength = length;
+	swkbd_inputStringChanged();
+	swkbd_finishInput();
+}
+
 uint32 SwkbdAppearInputForm(const swkbdAppearArg_t* appearArg)
 {
 	swkbdInternalState->formStringLength = 0;
 	swkbdInternalState->isActive = true;
 	swkbdInternalState->decideButtonWasPressed = false;
+	swkbdInternalState->decideCancelButtonWasPressed = false;
 	swkbdInternalState->keyboardOnlyMode = false;
 
 	// setup max text length
@@ -220,6 +275,11 @@ uint32 SwkbdAppearInputForm(const swkbdAppearArg_t* appearArg)
 		swkbdInternalState->formStringBuffer[0] = '\0';
 		swkbdInternalState->formStringLength = 0;
 	}
+	if (s_hostKeyboard)
+	{
+		s_hostGuideText = appearArg->infoText ? StringHelpers::ToUtf8(appearArg->infoText.GetPtr(), SWKBD_FORM_STRING_MAX_LENGTH) : std::string();
+		swkbd_runHostKeyboard();
+	}
 	return 1;
 }
 
@@ -236,9 +296,15 @@ uint32 SwkbdAppearKeyboard(const SwkbdKeyboardArg_t* keyboardArg)
 	swkbdInternalState->isActive = true;
 	swkbdInternalState->keyboardOnlyMode = true;
 	swkbdInternalState->decideButtonWasPressed = false;
+	swkbdInternalState->decideCancelButtonWasPressed = false;
 	swkbdInternalState->formStringBuffer[0] = '\0';
 	swkbdInternalState->formStringLength = 0;
 	swkbdInternalState->keyboardArg = *keyboardArg;
+	if (s_hostKeyboard)
+	{
+		s_hostGuideText.clear();
+		swkbd_runHostKeyboard();
+	}
 	return 1;
 }
 
@@ -272,7 +338,15 @@ uint32 SwkbdIsDecideOkButton(uint8*)
 	return 0;
 }
 
-typedef struct  
+uint32 SwkbdIsDecideCancelButton(uint8*)
+{
+	swkbdInternalState->cancelButtonPolled = true;
+	if (swkbdInternalState->decideCancelButtonWasPressed)
+		return 1;
+	return 0;
+}
+
+typedef struct
 {
 	uint32be ukn00;
 	uint32be ukn04;
@@ -391,16 +465,20 @@ void SwkbdCalcSubThreadPredict()
 
 void SwkbdCalc(void* controllerInfo)
 {
-	// no op for now
+	if (s_hostKeyboard && swkbdInternalState->isActive && swkbdInternalState->decideCancelButtonWasPressed && !swkbdInternalState->cancelButtonPolled)
+	{
+		if (++swkbdInternalState->calcsSinceCancel >= 2)
+			swkbd_runHostKeyboard();
+	}
 }
 
 void swkbd_keyInput(uint32 keyCode);
 void swkbd_render(bool mainWindow)
 {
 	// only render if active
-	if( swkbdInternalState == NULL || swkbdInternalState->isActive == false)
+	if( s_hostKeyboard || swkbdInternalState == NULL || swkbdInternalState->isActive == false)
 		return;
-	
+
 	auto& io = ImGui::GetIO();
 	const auto font = ImGui_GetFont(48.0f);
 	const auto textFont = ImGui_GetFont(24.0f);
@@ -566,7 +644,7 @@ void swkbd_finishInput()
 	swkbdInternalState->decideButtonWasPressed = true; // currently we always accept the input
 }
 
-typedef struct  
+typedef struct
 {
 	uint32be beginIndex;
 	uint32be endIndex;
@@ -645,20 +723,8 @@ void swkbd_keyInput(uint32 keyCode)
 	}
 	else
 		;// return;
-	// get max length
-	sint32 maxLength = swkbdInternalState->maxTextLength;
-	if (swkbdInternalState->keyboardOnlyMode)
-	{
-		uint32 stringBufferSize = swkbdInternalState->keyboardArg.receiverArg.stringBufSize;
-		if (stringBufferSize > 1)
-		{
-			maxLength = stringBufferSize - 1; // don't count the null-termination character
-		}
-		else
-			maxLength = 0;
-	}
 	// append character
-	if (swkbdInternalState->formStringLength < maxLength)
+	if (swkbdInternalState->formStringLength < swkbd_getMaxLength())
 	{
 		swkbdInternalState->formStringBuffer[swkbdInternalState->formStringLength] = keyCode;
 		swkbdInternalState->formStringLength++;
@@ -698,6 +764,7 @@ namespace swkbd
 			cafeExportRegisterFunc(SwkbdAppearKeyboard, "swkbd", "SwkbdAppearKeyboard__3RplFRCQ3_2nn5swkbd11KeyboardArg", LogType::SWKBD);
 			cafeExportRegisterFunc(SwkbdGetInputFormString, "swkbd", "SwkbdGetInputFormString__3RplFv", LogType::SWKBD);
 			cafeExportRegisterFunc(SwkbdIsDecideOkButton, "swkbd", "SwkbdIsDecideOkButton__3RplFPb", LogType::SWKBD);
+			cafeExportRegisterFunc(SwkbdIsDecideCancelButton, "swkbd", "SwkbdIsDecideCancelButton__3RplFPb", LogType::SWKBD);
 			cafeExportRegisterFunc(SwkbdInitLearnDic, "swkbd", "SwkbdInitLearnDic__3RplFPv", LogType::SWKBD);
 			cafeExportRegisterFunc(SwkbdGetDrawStringInfo, "swkbd", "SwkbdGetDrawStringInfo__3RplFPQ3_2nn5swkbd14DrawStringInfo", LogType::SWKBD);
 			cafeExportRegisterFunc(SwkbdCalcSubThreadFont, "swkbd", "SwkbdCalcSubThreadFont__3RplFv", LogType::SWKBD);

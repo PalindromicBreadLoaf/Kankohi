@@ -213,6 +213,7 @@ namespace EmulationSwitch
 		if (!s_initialised)
 			return;
 		StopTitle();
+		CafeTitleList::Shutdown();
 		CafeSystem::Shutdown();
 		AudrenAPI::Destroy();
 		GetConfigHandle().Save();

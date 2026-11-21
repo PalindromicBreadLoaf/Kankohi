@@ -46,6 +46,16 @@ void CafeTitleList::Initialize(const fs::path cacheXmlFile)
 	LoadCacheFile();
 }
 
+void CafeTitleList::Shutdown()
+{
+	std::unique_lock _lock(sTLMutex);
+	if (!sTLRefreshWorker.joinable())
+		return;
+	std::thread worker = std::move(sTLRefreshWorker);
+	_lock.unlock();
+	worker.join();
+}
+
 void CafeTitleList::LoadCacheFile()
 {
 	sTLIsScanMandatory = true;

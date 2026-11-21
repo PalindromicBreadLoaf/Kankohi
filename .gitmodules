@@ -50,3 +50,8 @@
 	path = dependencies/switch/glslang
 	url = https://github.com/KhronosGroup/glslang
 	shallow = true
+[submodule "dependencies/switch/borealis"]
+	path = dependencies/switch/borealis
+	url = https://github.com/PalindromicBreadLoaf/borealis.git
+	branch = porpoise
+	shallow = true

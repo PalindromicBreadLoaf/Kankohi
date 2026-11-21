@@ -281,8 +281,9 @@ if(NINTENDO_SWITCH)
 		COMMAND "${CMAKE_COMMAND}" -E rm -rf "${SWITCH_ROMFS_DIR}"
 		COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/bin/gameProfiles" "${SWITCH_ROMFS_DIR}/gameProfiles"
 		COMMAND "${CMAKE_COMMAND}" -E copy_directory "${CMAKE_SOURCE_DIR}/bin/resources/sharedFonts" "${SWITCH_ROMFS_DIR}/resources/sharedFonts"
+		COMMAND "${CMAKE_COMMAND}" -E copy_directory "${BOREALIS_ROMFS_DIR}" "${SWITCH_ROMFS_DIR}"
 		COMMAND "${CMAKE_COMMAND}" -E touch "${SWITCH_ROMFS_STAMP}"
-		DEPENDS ${SWITCH_ROMFS_INPUTS}
+		DEPENDS ${SWITCH_ROMFS_INPUTS} ${BOREALIS_ROMFS_FILES} borealis_romfs_files
 		VERBATIM)
 	dkp_add_asset_target(kankohi_romfs "${SWITCH_ROMFS_DIR}")
 	set_target_properties(kankohi_romfs PROPERTIES DKP_ASSET_FILES "${SWITCH_ROMFS_STAMP}")

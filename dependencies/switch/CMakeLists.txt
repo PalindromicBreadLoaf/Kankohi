@@ -45,3 +45,7 @@ target_include_directories(xbyak_aarch64 SYSTEM PUBLIC
 	${PROJECT_SOURCE_DIR}/dependencies/xbyak_aarch64/src
 	${PROJECT_SOURCE_DIR}/dependencies/xbyak_aarch64/xbyak_aarch64)
 target_include_directories(xbyak_aarch64 SYSTEM AFTER PUBLIC xbyak_aarch64_horizon)
+
+include(Borealis.cmake)
+set(BOREALIS_ROMFS_DIR "${BOREALIS_ROMFS_DIR}" PARENT_SCOPE)
+set(BOREALIS_ROMFS_FILES "${BOREALIS_ROMFS_FILES}" PARENT_SCOPE)

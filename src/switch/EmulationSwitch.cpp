@@ -172,6 +172,7 @@ namespace EmulationSwitch
 		const fs::path dataPath = HorizonApplet::IsRomfsMounted() ? fs::path("romfs:/") : userPath;
 		std::set<fs::path> failedWriteAccess;
 		ActiveSettings::SetPaths(false, userPath / "kankohi.nro", userPath, userPath, userPath / "cache", dataPath, failedWriteAccess);
+		cemuLog_createLogFile(false);
 		for (const auto& path : failedWriteAccess)
 			cemuLog_log(LogType::Force, "Can't write to {}", _pathToUtf8(path));
 		CreateDirectoriesIfMissing(ActiveSettings::GetConfigPath("controllerProfiles"));
@@ -181,10 +182,15 @@ namespace EmulationSwitch
 		std::error_code ec;
 		const bool isFirstStart = !fs::exists(settingsPath, ec);
 		NetworkConfig::LoadOnce();
-		if (isFirstStart)
-			GetConfigHandle().Save();
-		else
+		if (!isFirstStart)
 			GetConfigHandle().Load();
+		if (GetConfig().game_paths.empty())
+		{
+			const fs::path gamesPath = userPath / "games";
+			CreateDirectoriesIfMissing(gamesPath);
+			GetConfig().game_paths.emplace_back(_pathToUtf8(gamesPath));
+			GetConfigHandle().Save();
+		}
 
 		const fs::path mlcPath = ActiveSettings::GetMlcPath();
 		if (!CreateDefaultMlcFiles(mlcPath))

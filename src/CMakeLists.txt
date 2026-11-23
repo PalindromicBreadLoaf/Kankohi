@@ -110,9 +110,17 @@ if(NINTENDO_SWITCH)
 		switch/EmulationSwitch.cpp
 		switch/KeyboardSwitch.cpp
 		switch/MainSwitch.cpp
+		switch/ShellLibrarySwitch.cpp
 		switch/WindowSystemSwitch.cpp
 	)
 	set_source_files_properties(${HORIZON_SOURCES} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+	add_library(KankohiShell STATIC
+		switch/ShellGameListSwitch.cpp
+		switch/ShellSwitch.cpp
+	)
+	target_include_directories(KankohiShell PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+	target_link_libraries(KankohiShell PRIVATE borealis)
+	target_link_libraries(CemuBin PRIVATE KankohiShell)
 	set_source_files_properties(Common/switch/HorizonMalloc.c PROPERTIES
 		INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/dependencies/dlmalloc")
 	target_link_options(CemuBin PRIVATE

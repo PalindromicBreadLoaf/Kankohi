@@ -6,11 +6,13 @@
 #include "Common/FileStream.h"
 #include "Common/switch/HorizonApplet.h"
 #include "Common/switch/HorizonDiagnostics.h"
+#include "Common/switch/HorizonInput.h"
 #include "Common/switch/HorizonNetwork.h"
 #include "config/LaunchSettings.h"
 #include "gui/interface/WindowSystem.h"
 #include "input/InputManager.h"
 #include "switch/EmulationSwitch.h"
+#include "switch/ShellSwitch.h"
 #include "util/ThreadPool/ThreadPool.h"
 #include "util/helpers/helpers.h"
 
@@ -76,6 +78,33 @@ static void RunTitle()
 	EmulationSwitch::StopTitle();
 }
 
+static std::string LaunchAndRun(const fs::path& path)
+{
+	HorizonApplet::BeginBoost();
+	std::string error = EmulationSwitch::LaunchTitle(path);
+	if (!error.empty())
+	{
+		WindowSystem::ShowErrorDialog(error, "Launch failed");
+		HorizonApplet::EndBoost();
+		return error;
+	}
+	RunTitle();
+	return {};
+}
+
+static void RunShell()
+{
+	std::string notice;
+	while (HorizonApplet::Update())
+	{
+		std::optional<std::string> chosen = Shell::Run(notice);
+		HorizonInput::Reconfigure();
+		if (!chosen || !HorizonApplet::Update())
+			break;
+		notice = LaunchAndRun(_utf8ToPath(*chosen));
+	}
+}
+
 static void Shutdown()
 {
 	EmulationSwitch::Shutdown();
@@ -98,26 +127,18 @@ int main(int argc, char* argv[])
 		HorizonDiagnostics::Log("Not running as an application!!");
 
 	HorizonApplet::BeginBoost();
-	if (!EmulationSwitch::Initialise())
+	const bool initialised = EmulationSwitch::Initialise();
+	HorizonApplet::EndBoost();
+	if (!initialised)
 	{
-		HorizonApplet::EndBoost();
 		Shutdown();
 		return 1;
 	}
 
-	std::optional<fs::path> launchPath = LaunchSettings::GetLoadFile();
-	if (!launchPath)
-	{
-		cemuLog_log(LogType::Force, "No title given");
-		HorizonApplet::EndBoost();
-	}
-	else if (std::string error = EmulationSwitch::LaunchTitle(*launchPath); !error.empty())
-	{
-		WindowSystem::ShowErrorDialog(error, "Launch failed");
-		HorizonApplet::EndBoost();
-	}
+	if (std::optional<fs::path> launchPath = LaunchSettings::GetLoadFile())
+		LaunchAndRun(*launchPath);
 	else
-		RunTitle();
+		RunShell();
 
 	Shutdown();
 	HorizonDiagnostics::Log("Reached the end of main");

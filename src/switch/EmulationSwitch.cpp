@@ -119,7 +119,7 @@ namespace
 	bool CreateRenderer()
 	{
 		int width, height;
-		HorizonApplet::ResizeWindow(width, height);
+		HorizonApplet::GetDisplaySize(width, height);
 		UpdateWindowInfo(width, height);
 		try
 		{
@@ -150,6 +150,18 @@ namespace
 		gamepad->set_default_mapping(controller);
 		input.save();
 		cemuLog_log(LogType::Force, "Mapped the GamePad to player 1's controller");
+	}
+
+	void FollowDisplaySize()
+	{
+		int width, height;
+		HorizonApplet::GetDisplaySize(width, height);
+		auto& windowInfo = WindowSystem::GetWindowInfo();
+		if (windowInfo.phys_width == width && windowInfo.phys_height == height)
+			return;
+		cemuLog_log(LogType::Force, "Display changed to {}x{}", width, height);
+		windowInfo.width = windowInfo.phys_width = width;
+		windowInfo.height = windowInfo.phys_height = height;
 	}
 
 	void SystemImplementationSwitch::ServiceRecreate()
@@ -276,6 +288,7 @@ namespace EmulationSwitch
 	void Update()
 	{
 		s_systemImplementation.ServiceRecreate();
+		FollowDisplaySize();
 		KeyboardSwitch::Pump();
 	}
 

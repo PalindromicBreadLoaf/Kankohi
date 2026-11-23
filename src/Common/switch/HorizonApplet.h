@@ -17,7 +17,8 @@ namespace HorizonApplet
 	bool IsRomfsMounted();
 	bool IsDocked();
 
-	bool ResizeWindow(int& width, int& height);
+	void GetDisplaySize(int& width, int& height);
+	bool ResizeWindow(int width, int height);
 	void* GetWindow();
 
 	void BeginBoost();

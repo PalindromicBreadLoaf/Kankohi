@@ -7,6 +7,10 @@
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h"
 
+#if defined(__SWITCH__)
+#include "Common/switch/HorizonApplet.h"
+#endif
+
 SwapchainInfoVk::SwapchainInfoVk(bool mainWindow, Vector2i size) : mainWindow(mainWindow), m_desiredExtent(size)
 {
 	auto& windowHandleInfo = mainWindow ? WindowSystem::GetWindowInfo().canvas_main : WindowSystem::GetWindowInfo().canvas_pad;
@@ -28,6 +32,10 @@ SwapchainInfoVk::~SwapchainInfoVk()
 
 void SwapchainInfoVk::Create()
 {
+#if defined(__SWITCH__)
+	if (mainWindow)
+		HorizonApplet::ResizeWindow(m_desiredExtent.x, m_desiredExtent.y);
+#endif
 	const auto details = QuerySwapchainSupport(m_surface, m_physicalDevice);
 	m_surfaceFormat = ChooseSurfaceFormat(details.formats);
 	m_actualExtent = ChooseSwapExtent(details.capabilities);

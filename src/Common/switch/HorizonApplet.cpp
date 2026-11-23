@@ -114,18 +114,22 @@ namespace HorizonApplet
 		return appletGetOperationMode() == AppletOperationMode_Console;
 	}
 
-	bool ResizeWindow(int& width, int& height)
+	void GetDisplaySize(int& width, int& height)
 	{
 		width = IsDocked() ? 1920 : 1280;
 		height = IsDocked() ? 1080 : 720;
+	}
+
+	bool ResizeWindow(int width, int height)
+	{
+		u32 currentWidth = 0, currentHeight = 0;
+		nwindowGetDimensions(nwindowGetDefault(), &currentWidth, &currentHeight);
+		if (currentWidth == static_cast<u32>(width) && currentHeight == static_cast<u32>(height))
+			return true;
 		const Result result = nwindowSetDimensions(nwindowGetDefault(), width, height);
 		if (R_FAILED(result))
 		{
 			HorizonDiagnostics::Log("applet: nwindowSetDimensions(%d, %d) failed (%#x)", width, height, result);
-			u32 currentWidth = 0, currentHeight = 0;
-			nwindowGetDimensions(nwindowGetDefault(), &currentWidth, &currentHeight);
-			width = static_cast<int>(currentWidth);
-			height = static_cast<int>(currentHeight);
 			return false;
 		}
 		return true;

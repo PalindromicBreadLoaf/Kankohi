@@ -30,6 +30,9 @@ namespace CafeSystem
 	PREPARE_STATUS_CODE PrepareForegroundTitleFromStandaloneRPX(const fs::path& path);
 	void LaunchForegroundTitle();
 	bool IsTitleRunning();
+	void PauseTitle();
+	void ResumeTitle();
+	bool IsTitlePaused();
 
 	bool GetOverrideArgStr(std::vector<std::string>& args);
 	void SetOverrideArgs(std::span<std::string> args);

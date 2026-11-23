@@ -21,7 +21,7 @@ union FPR_t
 	};
 	struct
 	{
-		uint64 guint; 
+		uint64 guint;
 	};
 	struct
 	{
@@ -30,9 +30,9 @@ union FPR_t
 	};
 };
 
-typedef struct  
+typedef struct
 {
-	struct  
+	struct
 	{
 		uint32 scr;
 		uint32 car;
@@ -213,6 +213,7 @@ uint64 PPCTimer_tscToMicroseconds(uint64 us);
 uint64 PPCTimer_getRawTsc();
 
 void PPCTimer_start();
+void PPCTimer_setPaused(bool paused);
 
 // core info and control
 extern uint32 ppcThreadQuantum;

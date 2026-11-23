@@ -501,7 +501,7 @@ struct OSThread_t
 	/* +0x664 */ uint16								numAllocatedTLSBlocks;
 	/* +0x666 */ sint16								tlsStatus;
 	/* +0x668 */ MEMPTR<coreinit::OSTLSBlock>		tlsBlocks;
-	
+
 	/* +0x66C */ MEMPTR<coreinit::OSFastMutex>		waitingForFastMutex;
 	/* +0x670 */ coreinit::OSFastMutexLink			contendedFastMutex;
 	/* +0x678 */ coreinit::OSFastMutexLink			ownedFastMutex;
@@ -621,6 +621,9 @@ namespace coreinit
 	void OSSchedulerBegin(sint32 numCPUEmulationThreads);
 	void OSSchedulerEnd();
 	bool OSIsSchedulerActive();
+	void OSSchedulerSetPaused(bool paused);
+	bool OSIsSchedulerPaused();
+	void OSSchedulerWaitWhilePaused();
 
 	// thread list access (Cemu)
 	std::span<OSThread_t*> OSLockActiveThreadList();

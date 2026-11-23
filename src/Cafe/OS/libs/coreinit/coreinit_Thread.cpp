@@ -16,6 +16,8 @@
 
 #include "util/helpers/helpers.h"
 
+#include <condition_variable>
+
 #if defined(__arm64__) || defined(__aarch64__)
 #if defined(__clang__)
 #include <arm_acle.h>
@@ -63,6 +65,9 @@ namespace coreinit
 	std::atomic<bool> sSchedulerActive;
 	std::vector<std::thread> sSchedulerThreads;
 	std::mutex sSchedulerStateMtx;
+	std::atomic<bool> sSchedulerPaused;
+	std::mutex sSchedulerPauseMtx;
+	std::condition_variable sSchedulerPauseCond;
 
 	CafeStaticVar<OSThreadQueue> g_activeThreadQueue{coreinit::g_coreinitStaticData}; // list of all threads (can include non-detached inactive threads)
 
@@ -1218,6 +1223,7 @@ namespace coreinit
 		__OSUnlockScheduler();
 		while (true)
 		{
+			OSSchedulerWaitWhilePaused();
 			if (!g_coreRunQueueThreadCount[coreIndex].isZero()) // avoid hammering the lock on the main core if there is no runable thread
 			{
 				__OSLockScheduler();
@@ -1333,6 +1339,7 @@ namespace coreinit
 			hCPU->reservedMemValue = 0;
 
 			// reschedule
+			OSSchedulerWaitWhilePaused();
 			__OSLockScheduler();
 			__OSThreadSwitchToNext();
 			__OSUnlockScheduler();
@@ -1421,6 +1428,7 @@ namespace coreinit
 	{
 		std::unique_lock _lock(sSchedulerStateMtx);
 		sSchedulerActive.store(false);
+		OSSchedulerSetPaused(false);
 		for (size_t i = 0; i < Espresso::CORE_COUNT; i++)
 			g_coreRunQueueThreadCount[i].increment(); // make sure to wake up cores if they are paused and waiting for runnable threads
 		// wait for threads to stop execution
@@ -1451,6 +1459,29 @@ namespace coreinit
 	bool OSIsSchedulerActive()
 	{
 		return sSchedulerActive;
+	}
+
+	void OSSchedulerSetPaused(bool paused)
+	{
+		{
+			std::unique_lock _lock(sSchedulerPauseMtx);
+			sSchedulerPaused.store(paused);
+		}
+		sSchedulerPauseCond.notify_all();
+	}
+
+	bool OSIsSchedulerPaused()
+	{
+		return sSchedulerPaused;
+	}
+
+	void OSSchedulerWaitWhilePaused()
+	{
+		if (!sSchedulerPaused.load(std::memory_order::relaxed))
+			return;
+		cemu_assert_debug(!__OSHasSchedulerLock());
+		std::unique_lock _lock(sSchedulerPauseMtx);
+		sSchedulerPauseCond.wait(_lock, [] { return !sSchedulerPaused.load(); });
 	}
 
 	CafeStaticVar<OSThread_t, PPC_CORE_COUNT> s_defaultThreads{coreinit::g_coreinitStaticData};

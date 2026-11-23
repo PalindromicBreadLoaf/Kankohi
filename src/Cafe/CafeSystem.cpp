@@ -939,6 +939,27 @@ namespace CafeSystem
 		return sSystemRunning;
 	}
 
+	void PauseTitle()
+	{
+		if (!sSystemRunning || coreinit::OSIsSchedulerPaused())
+			return;
+		coreinit::OSSchedulerSetPaused(true);
+		PPCTimer_setPaused(true);
+	}
+
+	void ResumeTitle()
+	{
+		if (!coreinit::OSIsSchedulerPaused())
+			return;
+		PPCTimer_setPaused(false);
+		coreinit::OSSchedulerSetPaused(false);
+	}
+
+	bool IsTitlePaused()
+	{
+		return coreinit::OSIsSchedulerPaused();
+	}
+
 	TitleId GetForegroundTitleId()
 	{
 		cemu_assert_debug(sForegroundTitleId != 0);

@@ -83,11 +83,13 @@ void PPCTimer_init()
 }
 
 uint64 _tickSummary = 0;
+bool _timerPaused = false;
 
 void PPCTimer_start()
 {
 	_rdtscLastMeasure = __rdtsc();
 	_tickSummary = 0;
+	_timerPaused = false;
 }
 
 uint64 PPCTimer_getRawTsc()
@@ -127,6 +129,11 @@ FSpinlock sTimerSpinlock;
 uint64 PPCTimer_getFromRDTSC()
 {
 	sTimerSpinlock.lock();
+	if (_timerPaused)
+	{
+		sTimerSpinlock.unlock();
+		return _tickSummary;
+	}
 	_mm_mfence();
 	uint64 rdtscCurrentMeasure = __rdtsc();
 	uint64 rdtscDif = rdtscCurrentMeasure - _rdtscLastMeasure;
@@ -164,4 +171,14 @@ uint64 PPCTimer_getFromRDTSC()
 
 	sTimerSpinlock.unlock();
 	return _tickSummary;
+}
+
+void PPCTimer_setPaused(bool paused)
+{
+	if (paused)
+		PPCTimer_getFromRDTSC();
+	sTimerSpinlock.lock();
+	_rdtscLastMeasure = __rdtsc();
+	_timerPaused = paused;
+	sTimerSpinlock.unlock();
 }

@@ -186,6 +186,19 @@ namespace HorizonInput
 		s_initialised = true;
 	}
 
+	void Reconfigure()
+	{
+		if (!s_initialised)
+			return;
+		padConfigureInput(MAX_PLAYERS, HidNpadStyleSet_NpadStandard | HidNpadStyleTag_NpadGc);
+		hidSetNpadJoyHoldType(HidNpadJoyHoldType_Vertical);
+		for (Slot& slot : s_slots)
+		{
+			std::scoped_lock lock(slot.mutex);
+			ReleaseHandles(slot);
+		}
+	}
+
 	void Shutdown()
 	{
 		if (!s_initialised)

@@ -29,6 +29,7 @@ namespace HorizonInput
 
 	void Init();
 	void Shutdown();
+	void Reconfigure();
 
 	bool IsConnected(int player);
 	void Poll(int player, PadSnapshot& snapshot);

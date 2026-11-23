@@ -56,9 +56,9 @@ struct LatteGPUState_t
 	bool repeatTextureInitialization; // if set during rendertarget or texture initialization, repeat the process (textures likely have been invalidated)
 	bool requiresTextureBarrier; // set if glTextureBarrier should be called
 	// OSScreen
-	struct  
+	struct
 	{
-		struct  
+		struct
 		{
 			bool isEnabled;
 			MPTR physPtr;
@@ -111,6 +111,7 @@ void LatteRenderTarget_itHLEClearColorDepthStencil(uint32 clearMask, MPTR colorB
 void LatteRenderTarget_itHLECopyColorBufferToScanBuffer(MPTR colorBufferPtr, uint32 colorBufferWidth, uint32 colorBufferHeight, uint32 colorBufferSliceIndex, uint32 colorBufferFormat, uint32 colorBufferPitch, Latte::E_HWTILEMODE colorBufferTilemode, uint32 colorBufferSwizzle, uint32 renderTarget);
 
 void LatteRenderTarget_unloadAll();
+void LatteRenderTarget_redrawLastScanBuffer();
 
 // texture cache
 
@@ -185,4 +186,5 @@ void LatteRenderTarget_updateViewport();
 void Latte_Start();
 void Latte_Stop();
 bool Latte_GetStopSignal(); // returns true if stop was requested or if in stopped state
+void Latte_RequestRedraw(); // served once the command processor is idle
 void LatteThread_Exit();

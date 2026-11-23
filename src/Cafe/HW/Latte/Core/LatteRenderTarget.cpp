@@ -999,14 +999,39 @@ void LatteRenderTarget_copyToBackbuffer(LatteTextureView* textureView, bool isPa
 	g_renderer->ImguiEnd();
 }
 
+struct LatteScanBufferSource
+{
+	bool isValid;
+	MPTR colorBufferPtr;
+	uint32 width;
+	uint32 height;
+	uint32 format;
+	uint32 pitch;
+	Latte::E_HWTILEMODE tilemode;
+	uint32 swizzle;
+};
+
+// last colour buffer copied to the TV and DRC scan buffers
+static LatteScanBufferSource s_lastScanBufferSource[2]{};
+
+static LatteTextureView* LatteRenderTarget_getScanBufferSourceView(const LatteScanBufferSource& source)
+{
+	return LatteTC_GetTextureSliceViewOrTryCreate(source.colorBufferPtr, MPTR_NULL, (Latte::E_GX2SURFFMT)source.format, source.tilemode, source.width, source.height, 1, source.pitch, source.swizzle, 0, 0, true);
+}
+
 void LatteRenderTarget_itHLECopyColorBufferToScanBuffer(MPTR colorBufferPtr, uint32 colorBufferWidth, uint32 colorBufferHeight, uint32 colorBufferSliceIndex, uint32 colorBufferFormat, uint32 colorBufferPitch, Latte::E_HWTILEMODE colorBufferTilemode, uint32 colorBufferSwizzle, uint32 renderTarget)
 {
 	cemu_assert_debug(colorBufferSliceIndex == 0); // todo - support for non-zero slice
-	LatteTextureView* texView = LatteTC_GetTextureSliceViewOrTryCreate(colorBufferPtr, MPTR_NULL, (Latte::E_GX2SURFFMT)colorBufferFormat, colorBufferTilemode, colorBufferWidth, colorBufferHeight, 1, colorBufferPitch, colorBufferSwizzle, 0, 0, true);
+	const LatteScanBufferSource source{true, colorBufferPtr, colorBufferWidth, colorBufferHeight, colorBufferFormat, colorBufferPitch, colorBufferTilemode, colorBufferSwizzle};
+	LatteTextureView* texView = LatteRenderTarget_getScanBufferSourceView(source);
 	if (!texView)
 	{
 		return;
 	}
+	if (renderTarget & RENDER_TARGET_TV)
+		s_lastScanBufferSource[0] = source;
+	if (renderTarget & RENDER_TARGET_DRC)
+		s_lastScanBufferSource[1] = source;
 
 	auto getVPADScreenActive = [](size_t n) -> std::pair<bool, bool> {
 		auto controller = InputManager::instance().get_vpad_controller(n);
@@ -1038,6 +1063,20 @@ void LatteRenderTarget_itHLECopyColorBufferToScanBuffer(MPTR colorBufferPtr, uin
 		LatteRenderTarget_copyToBackbuffer(texView, true);
 	if (((renderTarget & RENDER_TARGET_TV) && !showDRC) || ((renderTarget & RENDER_TARGET_DRC) && showDRC))
 		LatteRenderTarget_copyToBackbuffer(texView, false);
+}
+
+void LatteRenderTarget_redrawLastScanBuffer()
+{
+	const LatteScanBufferSource* source = &s_lastScanBufferSource[LatteGPUState.isDRCPrimary ? 1 : 0];
+	if (!source->isValid)
+		source = &s_lastScanBufferSource[0];
+	if (!source->isValid)
+		return;
+	LatteTextureView* texView = LatteRenderTarget_getScanBufferSourceView(*source);
+	if (!texView)
+		return;
+	LatteRenderTarget_copyToBackbuffer(texView, false);
+	g_renderer->SwapBuffers(true, false);
 }
 
 
@@ -1113,6 +1152,8 @@ void LatteRenderTarget_updateScissorBox()
 
 void LatteRenderTarget_unloadAll()
 {
+	for (auto& source : s_lastScanBufferSource)
+		source = {};
 	if (g_emptyFBO)
 	{
 		LatteMRT::DeleteCachedFBO(g_emptyFBO);

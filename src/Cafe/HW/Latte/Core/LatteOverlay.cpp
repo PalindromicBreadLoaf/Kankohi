@@ -167,7 +167,7 @@ void LatteOverlay_RenderNotifications(ImVec2& position, ImVec2& pivot, sint32 di
 					position.y += (ImGui::GetWindowSize().y + 10.0f) * direction;
 				}
 				ImGui::End();
-				
+
 				// controller
 				std::vector<std::pair<int, std::string>> profiles;
 				auto& input_manager = InputManager::instance();
@@ -360,7 +360,7 @@ void LatteOverlay_RenderNotifications(ImVec2& position, ImVec2& pivot, sint32 di
 				ImGui::End();
 			}
 		}
-		
+
 		static int32_t s_pipeline_count = 0;
 		static int32_t s_pipeline_count_async = 0;
 		if (s_pipeline_count > 0 || g_compiling_pipelines > 0)
@@ -514,8 +514,27 @@ void LatteOverlay_translateScreenPosition(ScreenPosition pos, const Vector2f& wi
 	}
 }
 
+static std::mutex s_hostUICallbackMutex;
+static std::function<void()> s_hostUICallback;
+
+void LatteOverlay_setHostUICallback(std::function<void()> callback)
+{
+	std::scoped_lock lock(s_hostUICallbackMutex);
+	s_hostUICallback = std::move(callback);
+}
+
+static void LatteOverlay_renderHostUI(bool pad_view)
+{
+	if (pad_view)
+		return;
+	std::scoped_lock lock(s_hostUICallbackMutex);
+	if (s_hostUICallback)
+		s_hostUICallback();
+}
+
 void LatteOverlay_render(bool pad_view)
 {
+	LatteOverlay_renderHostUI(pad_view);
 	const auto& config = GetConfig();
 	if(config.overlay.position == ScreenPosition::kDisabled && config.notification.position == ScreenPosition::kDisabled)
 		return;
@@ -540,7 +559,7 @@ void LatteOverlay_render(bool pad_view)
 		return;
 
 	float notificationsFontSize = 14.0f * (float)config.notification.text_scale / 100.0f * fontDPIScale;
-	
+
 	if (!ImGui_GetFont(notificationsFontSize))
 		return;
 
@@ -552,7 +571,7 @@ void LatteOverlay_render(bool pad_view)
 		LatteOverlay_translateScreenPosition(config.overlay.position, window_size, position, pivot, direction);
 		LatteOverlay_renderOverlay(position, pivot, direction, overlayFontSize, pad_view);
 	}
-	
+
 
 	if (config.notification.position != ScreenPosition::kDisabled)
 	{
@@ -575,10 +594,10 @@ static void UpdateStats_CemuCpu()
 {
 	ProcessorTime now;
 	QueryProcTime(now);
-	
+
 	double cpu = ProcessorTime::Compare(g_state.processor_time_cemu, now);
 	cpu /= g_state.processor_count;
-	
+
 	g_state.cpu_usage = cpu * 100;
 	g_state.processor_time_cemu = now;
 }

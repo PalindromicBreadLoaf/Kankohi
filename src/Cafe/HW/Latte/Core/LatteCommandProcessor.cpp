@@ -29,6 +29,7 @@ typedef uint32be* LatteCMDPtr;
 #define LatteSkipCMD(_nWords) cmd += (_nWords)
 
 void LatteThread_HandleOSScreen();
+void LatteThread_HandleRedrawRequest();
 
 void LatteThread_Exit();
 
@@ -182,6 +183,7 @@ uint32 LatteCP_readU32Deprc()
 			_mm_pause();
 		}
 		LatteThread_HandleOSScreen(); // check if new frame was presented via OSScreen API
+		LatteThread_HandleRedrawRequest();
 
 		if ( TCL::TCLGPUReadRBWord(cmdWord) )
 			return cmdWord;
@@ -764,7 +766,7 @@ LatteCMDPtr LatteCP_itDrawImmediate(LatteCMDPtr cmd, uint32 nWords, DrawPassCont
 	cemu_assert(nWords >= 2);
 	uint32 count = LatteReadCMD();
 	uint32 ukn1 = LatteReadCMD();
-	// reserve array for index data	
+	// reserve array for index data
 	if (_tempIndexArrayMPTR == MPTR_NULL)
 		_tempIndexArrayMPTR = coreinit_allocFromSysArea(0x4000 * sizeof(uint32), 0x4);
 	LatteGPUState.currentDrawCallTick = GetTickCount();
@@ -929,7 +931,7 @@ LatteCMDPtr LatteCP_itHLEClearColorDepthStencil(LatteCMDPtr cmd, uint32 nWords)
 	uint32 clearStencil = LatteReadCMD();
 
 	LatteRenderTarget_itHLEClearColorDepthStencil(
-		clearMask, 
+		clearMask,
 		colorBufferMPTR, colorBufferFormat, colorBufferTilemode, colorBufferWidth, colorBufferHeight, colorBufferPitch, colorBufferViewFirstSlice, colorBufferViewNumSlice,
 		depthBufferMPTR, depthBufferFormat, depthBufferTileMode, depthBufferWidth, depthBufferHeight, depthBufferPitch, depthBufferViewFirstSlice, depthBufferViewNumSlice,
 		r, g, b, a,

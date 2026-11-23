@@ -23,6 +23,7 @@ LatteGPUState_t LatteGPUState = {};
 
 std::atomic_bool sLatteThreadRunning = false;
 std::atomic_bool sLatteThreadFinishedInit = false;
+std::atomic_bool sLatteRedrawRequested = false;
 
 void LatteThread_Exit();
 
@@ -245,6 +246,17 @@ void Latte_Stop()
 bool Latte_GetStopSignal()
 {
 	return !sLatteThreadRunning;
+}
+
+void Latte_RequestRedraw()
+{
+	sLatteRedrawRequested = true;
+}
+
+void LatteThread_HandleRedrawRequest()
+{
+	if (sLatteRedrawRequested.load(std::memory_order::relaxed) && sLatteRedrawRequested.exchange(false))
+		LatteRenderTarget_redrawLastScanBuffer();
 }
 
 void LatteThread_Exit()

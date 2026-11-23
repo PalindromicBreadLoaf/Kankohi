@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "switch/ShellGameListSwitch.h"
+#include "switch/ShellSettingsSwitch.h"
 
 #include <algorithm>
 
@@ -132,6 +133,10 @@ namespace Shell
 
 		registerAction("Rescan", brls::BUTTON_Y, [this](brls::View*) {
 			Rescan();
+			return true;
+		});
+		registerAction("Settings", brls::BUTTON_BACK, [](brls::View*) {
+			brls::Application::pushActivity(CreateSettingsActivity());
 			return true;
 		});
 

@@ -110,12 +110,14 @@ if(NINTENDO_SWITCH)
 		switch/EmulationSwitch.cpp
 		switch/KeyboardSwitch.cpp
 		switch/MainSwitch.cpp
+		switch/ShellConfigSwitch.cpp
 		switch/ShellLibrarySwitch.cpp
 		switch/WindowSystemSwitch.cpp
 	)
 	set_source_files_properties(${HORIZON_SOURCES} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 	add_library(KankohiShell STATIC
 		switch/ShellGameListSwitch.cpp
+		switch/ShellSettingsSwitch.cpp
 		switch/ShellSwitch.cpp
 	)
 	target_include_directories(KankohiShell PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")

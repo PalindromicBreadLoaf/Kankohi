@@ -17,6 +17,7 @@ namespace ShellConfig
 		std::function<int()> get;
 		std::function<void(int)> set;
 		bool isToggle = false;
+		bool appliesAtLaunch = false;
 	};
 
 	struct Section
@@ -35,4 +36,5 @@ namespace ShellConfig
 	std::vector<Page> GetPages();
 	std::vector<std::pair<std::string, std::string>> GetAbout();
 	void Save();
+	void ApplyRunning();
 }

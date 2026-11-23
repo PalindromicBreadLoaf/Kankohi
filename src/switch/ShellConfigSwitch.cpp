@@ -53,6 +53,12 @@ namespace
 		return setting;
 	}
 
+	Setting AtLaunch(Setting setting)
+	{
+		setting.appliesAtLaunch = true;
+		return setting;
+	}
+
 	std::vector<Option<ScreenPosition>> ScreenPositions(const char* disabledLabel)
 	{
 		return {
@@ -80,15 +86,15 @@ namespace
 	{
 		return {"General", {
 			{"Emulation", {}, {
-				Choice<CPUMode>("CPU mode", config.cpu_mode, {
+				AtLaunch(Choice<CPUMode>("CPU mode", config.cpu_mode, {
 					{"Auto", CPUMode::Auto},
 					{"Single-core recompiler", CPUMode::SinglecoreRecompiler},
 					{"Multi-core recompiler", CPUMode::MulticoreRecompiler},
 					{"Interpreter", CPUMode::SinglecoreInterpreter},
-				}),
+				})),
 			}},
 			{"Console", {}, {
-				Choice<CafeConsoleLanguage>("Language", config.console_language, {
+				AtLaunch(Choice<CafeConsoleLanguage>("Language", config.console_language, {
 					{"Japanese", CafeConsoleLanguage::JA},
 					{"English", CafeConsoleLanguage::EN},
 					{"French", CafeConsoleLanguage::FR},
@@ -101,7 +107,7 @@ namespace
 					{"Portuguese", CafeConsoleLanguage::PT},
 					{"Russian", CafeConsoleLanguage::RU},
 					{"Chinese (traditional)", CafeConsoleLanguage::TW},
-				}),
+				})),
 			}},
 		}};
 	}
@@ -158,11 +164,11 @@ namespace
 		return {"Audio", {
 			{"TV", "Higher latency avoids crackling when emulation runs slowly.", {
 				Choice<sint32>("Volume", config.tv_volume, std::move(volumes)),
-				Choice<AudioChannels>("Channels", config.tv_channels, {
+				AtLaunch(Choice<AudioChannels>("Channels", config.tv_channels, {
 					{"Mono", kMono},
 					{"Stereo", kStereo},
-				}),
-				Choice<sint32>("Latency", config.audio_delay, std::move(latencies)),
+				})),
+				AtLaunch(Choice<sint32>("Latency", config.audio_delay, std::move(latencies))),
 			}},
 		}};
 	}
@@ -192,5 +198,12 @@ namespace ShellConfig
 	void Save()
 	{
 		GetConfigHandle().Save();
+	}
+
+	void ApplyRunning()
+	{
+		std::shared_lock lock(g_audioMutex);
+		if (g_tvAudio)
+			g_tvAudio->SetVolume(GetConfig().tv_volume);
 	}
 }

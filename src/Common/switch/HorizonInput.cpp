@@ -41,6 +41,7 @@ namespace
 
 		std::atomic<float> rumble = 0.0f;
 		float sentRumble = 0.0f;
+		std::atomic<uint64_t> heldButtons = 0;
 	};
 
 	std::array<Slot, HorizonInput::MAX_PLAYERS> s_slots;
@@ -232,7 +233,8 @@ namespace HorizonInput
 		padUpdate(&slot.pad);
 
 		snapshot.connected = padIsConnected(&slot.pad);
-		snapshot.buttons = padGetButtons(&slot.pad) & BUTTON_MASK;
+		snapshot.buttons = snapshot.connected ? padGetButtons(&slot.pad) & BUTTON_MASK : 0;
+		slot.heldButtons.store(snapshot.buttons, std::memory_order_relaxed);
 		for (unsigned i = 0; i < 2; i++)
 		{
 			const HidAnalogStickState stick = padGetStickPos(&slot.pad, i);
@@ -261,5 +263,19 @@ namespace HorizonInput
 	{
 		if (player >= 0 && player < MAX_PLAYERS)
 			s_slots[player].rumble.store(amplitude, std::memory_order_relaxed);
+	}
+
+	void StopAllRumble()
+	{
+		for (Slot& slot : s_slots)
+			slot.rumble.store(0.0f, std::memory_order_relaxed);
+	}
+
+	uint64_t GetHeldButtons()
+	{
+		uint64_t buttons = 0;
+		for (const Slot& slot : s_slots)
+			buttons |= slot.heldButtons.load(std::memory_order_relaxed);
+		return buttons;
 	}
 }

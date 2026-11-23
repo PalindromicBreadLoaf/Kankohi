@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 PalindromicBreadLoaf
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "Cafe/CafeSystem.h"
 #include "Cafe/HW/Latte/Core/Latte.h"
 #include "Cemu/FileCache/FileCache.h"
 #include "Common/FileStream.h"
@@ -12,6 +13,7 @@
 #include "gui/interface/WindowSystem.h"
 #include "input/InputManager.h"
 #include "switch/EmulationSwitch.h"
+#include "switch/PauseMenuSwitch.h"
 #include "switch/ShellSwitch.h"
 #include "util/ThreadPool/ThreadPool.h"
 #include "util/helpers/helpers.h"
@@ -57,11 +59,12 @@ __attribute__((constructor(101))) static void InitDiagnostics()
 	std::atexit(ShutdownDiagnostics);
 }
 
-static void RunTitle()
+static void RunTitle(const std::string& exitLabel)
 {
+	PauseMenu pauseMenu(CafeSystem::GetForegroundTitleName(), exitLabel);
 	const uint64 flipsAtLaunch = LatteGPUState.flipRequestCount.load();
 	bool boosting = true;
-	while (HorizonApplet::Update() && !EmulationSwitch::HasTitleExited())
+	while (HorizonApplet::Update() && !EmulationSwitch::HasTitleExited() && !pauseMenu.IsExitRequested())
 	{
 		WindowSystem::GetWindowInfo().app_active = HorizonApplet::IsInFocus();
 		EmulationSwitch::Update();
@@ -70,6 +73,7 @@ static void RunTitle()
 			HorizonApplet::EndBoost();
 			boosting = false;
 		}
+		pauseMenu.Update(!boosting);
 		FileStream::FlushStaleWrites();
 		std::this_thread::sleep_for(FRONTEND_POLL_INTERVAL);
 	}
@@ -78,7 +82,7 @@ static void RunTitle()
 	EmulationSwitch::StopTitle();
 }
 
-static std::string LaunchAndRun(const fs::path& path)
+static std::string LaunchAndRun(const fs::path& path, const std::string& exitLabel)
 {
 	HorizonApplet::BeginBoost();
 	std::string error = EmulationSwitch::LaunchTitle(path);
@@ -88,7 +92,7 @@ static std::string LaunchAndRun(const fs::path& path)
 		HorizonApplet::EndBoost();
 		return error;
 	}
-	RunTitle();
+	RunTitle(exitLabel);
 	return {};
 }
 
@@ -101,7 +105,7 @@ static void RunShell()
 		HorizonInput::Reconfigure();
 		if (!chosen || !HorizonApplet::Update())
 			break;
-		notice = LaunchAndRun(_utf8ToPath(*chosen));
+		notice = LaunchAndRun(_utf8ToPath(*chosen), "Exit to library");
 	}
 }
 
@@ -136,7 +140,7 @@ int main(int argc, char* argv[])
 	}
 
 	if (std::optional<fs::path> launchPath = LaunchSettings::GetLoadFile())
-		LaunchAndRun(*launchPath);
+		LaunchAndRun(*launchPath, "Quit");
 	else
 		RunShell();
 

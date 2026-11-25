@@ -112,6 +112,7 @@ void LatteRenderTarget_itHLECopyColorBufferToScanBuffer(MPTR colorBufferPtr, uin
 
 void LatteRenderTarget_unloadAll();
 void LatteRenderTarget_redrawLastScanBuffer();
+bool LatteRenderTarget_isDRCShown();
 
 // texture cache
 

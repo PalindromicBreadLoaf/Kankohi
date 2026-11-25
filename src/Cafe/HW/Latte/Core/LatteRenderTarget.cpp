@@ -1013,6 +1013,7 @@ struct LatteScanBufferSource
 
 // last colour buffer copied to the TV and DRC scan buffers
 static LatteScanBufferSource s_lastScanBufferSource[2]{};
+static std::atomic_bool s_isDRCShown = false;
 
 static LatteTextureView* LatteRenderTarget_getScanBufferSourceView(const LatteScanBufferSource& source)
 {
@@ -1058,6 +1059,7 @@ void LatteRenderTarget_itHLECopyColorBufferToScanBuffer(MPTR colorBufferPtr, uin
 	togglePressedLast = togglePressed;
 
 	bool showDRC = swkbd_hasKeyboardInputHook() == false && (isDRCPrimary ^ altScreenRequested);
+	s_isDRCShown = showDRC;
 
 	if ((renderTarget & RENDER_TARGET_DRC) && g_renderer->IsPadWindowActive())
 		LatteRenderTarget_copyToBackbuffer(texView, true);
@@ -1077,6 +1079,11 @@ void LatteRenderTarget_redrawLastScanBuffer()
 		return;
 	LatteRenderTarget_copyToBackbuffer(texView, false);
 	g_renderer->SwapBuffers(true, false);
+}
+
+bool LatteRenderTarget_isDRCShown()
+{
+	return s_isDRCShown;
 }
 
 

@@ -4,7 +4,9 @@
 #undef CSIZE
 #include <xbyak_aarch64.h>
 #pragma pop_macro("CSIZE")
-#if !defined(__SWITCH__)
+#if defined(__SWITCH__)
+#include "CodeArena.h"
+#else
 #include <xbyak_aarch64_util.h>
 #endif
 
@@ -74,6 +76,30 @@ static bool IsAtomicSupported()
 }
 #endif
 
+#if defined(__SWITCH__)
+constexpr size_t CODE_ARENA_SIZE = 96 * 1024 * 1024;
+
+static CodeArena s_codeArena;
+
+class AArch64Allocator : public Allocator
+{
+  public:
+	uint32* alloc(size_t size) override
+	{
+		return static_cast<uint32*>(std::malloc(size));
+	}
+
+	void free(uint32* p) override
+	{
+		std::free(p);
+	}
+
+	[[nodiscard]] bool useProtect() const override
+	{
+		return false;
+	}
+};
+#else
 class AArch64Allocator : public Allocator
 {
   private:
@@ -110,6 +136,7 @@ class AArch64Allocator : public Allocator
 		return !m_freeDisabled && m_allocatorImpl->useProtect();
 	}
 };
+#endif
 
 struct UnconditionalJumpInfo
 {
@@ -165,6 +192,15 @@ struct AArch64GenContext_t : CodeGenerator
 	void cjump(IMLInstruction* imlInstruction, IMLSegment* imlSegment);
 	void jump(IMLSegment* imlSegment);
 	void conditionalJumpCycleCheck(IMLSegment* imlSegment);
+
+#if defined(__SWITCH__)
+	void* publish()
+	{
+		if (hasUndefinedLabel())
+			throw Error(ERR_LABEL_IS_NOT_FOUND);
+		return s_codeArena.Publish(getCode(), getSize());
+	}
+#endif
 
 	static constexpr size_t MAX_JUMP_INSTR_COUNT = 2;
 	std::list<std::pair<size_t, JumpInfo>> jumps;
@@ -1498,7 +1534,7 @@ void AArch64GenContext_t::call_imm(IMLInstruction* imlInstruction)
 	ldr(x30, AdrPostImm(sp, 16));
 }
 
-bool PPCRecompiler_generateAArch64Code(struct PPCRecFunction_t* PPCRecFunction, struct ppcImlGenContext_t* ppcImlGenContext)
+static bool GenerateAArch64Code(PPCRecFunction_t* PPCRecFunction, ppcImlGenContext_t* ppcImlGenContext)
 {
 	AArch64Allocator allocator;
 	AArch64GenContext_t aarch64GenContext{&allocator};
@@ -1677,6 +1713,17 @@ bool PPCRecompiler_generateAArch64Code(struct PPCRecFunction_t* PPCRecFunction, 
 	}
 	aarch64GenContext.setSize(codeSize);
 
+#if defined(__SWITCH__)
+	PPCRecFunction->x86Code = aarch64GenContext.publish();
+	PPCRecFunction->x86Size = codeSize;
+	if (!PPCRecFunction->x86Code)
+	{
+		static std::atomic_flag s_loggedArenaFull;
+		if (!s_loggedArenaFull.test_and_set())
+			cemuLog_log(LogType::Force, "Recompiler: The code arena is full ({} of {} KiB used). New functions will be interpreted", s_codeArena.GetUsedSize() / 1024, s_codeArena.GetSize() / 1024);
+		return false;
+	}
+#else
 	aarch64GenContext.readyRE();
 
 	// set code
@@ -1684,15 +1731,33 @@ bool PPCRecompiler_generateAArch64Code(struct PPCRecFunction_t* PPCRecFunction, 
 	PPCRecFunction->x86Size = aarch64GenContext.getMaxSize();
 	// set free disabled to skip freeing the code from the CodeGenerator destructor
 	allocator.setFreeDisabled(true);
+#endif
 	return true;
+}
+
+bool PPCRecompiler_generateAArch64Code(struct PPCRecFunction_t* PPCRecFunction, struct ppcImlGenContext_t* ppcImlGenContext)
+{
+	try
+	{
+		return GenerateAArch64Code(PPCRecFunction, ppcImlGenContext);
+	}
+	catch (const std::exception& e)
+	{
+		cemuLog_log(LogType::Force, "Recompiler: Failed to generate code for 0x{:08x}: {}", PPCRecFunction->ppcAddress, e.what());
+		return false;
+	}
 }
 
 void PPCRecompiler_cleanupAArch64Code(void* code, size_t size)
 {
+#if defined(__SWITCH__)
+	s_codeArena.Free(code, size);
+#else
 	AArch64Allocator allocator;
 	if (allocator.useProtect())
 		CodeArray::protect(code, size, CodeArray::PROTECT_RW);
 	allocator.free(static_cast<uint32*>(code));
+#endif
 }
 
 void AArch64GenContext_t::enterRecompilerCode()
@@ -1738,11 +1803,48 @@ void AArch64GenContext_t::leaveRecompilerCode()
 	ret();
 }
 
+#if defined(__SWITCH__)
+template<typename T>
+static void PublishInterfaceFunction(T& function, void (AArch64GenContext_t::*generate)())
+{
+	AArch64Allocator allocator;
+	AArch64GenContext_t context{&allocator};
+	(context.*generate)();
+	function = reinterpret_cast<T>(context.publish());
+}
+
+bool PPCRecompilerAArch64Gen_generateRecompilerInterfaceFunctions()
+{
+	const uint32 result = s_codeArena.Create(CODE_ARENA_SIZE);
+	if (result != 0)
+	{
+		cemuLog_log(LogType::Force, "Recompiler: Creating the code arena failed with 0x{:x}", result);
+		return false;
+	}
+	PublishInterfaceFunction(PPCRecompiler_enterRecompilerCode, &AArch64GenContext_t::enterRecompilerCode);
+	PublishInterfaceFunction(PPCRecompiler_leaveRecompilerCode_unvisited, &AArch64GenContext_t::leaveRecompilerCode);
+	PublishInterfaceFunction(PPCRecompiler_leaveRecompilerCode_visited, &AArch64GenContext_t::leaveRecompilerCode);
+	return true;
+}
+
+void PPCRecompilerAArch64Gen_shutdown()
+{
+	if (s_codeArena.GetSize() == 0)
+		return;
+	cemuLog_log(LogType::Force, "Recompiler: {} of {} KiB of the code arena were used", s_codeArena.GetUsedSize() / 1024, s_codeArena.GetSize() / 1024);
+	PPCRecompiler_enterRecompilerCode = nullptr;
+	PPCRecompiler_leaveRecompilerCode_unvisited = nullptr;
+	PPCRecompiler_leaveRecompilerCode_visited = nullptr;
+	const uint32 result = s_codeArena.Destroy();
+	if (result != 0)
+		cemuLog_log(LogType::Force, "Recompiler: Destroying the code arena failed with 0x{:x}", result);
+}
+#else
 bool initializedInterfaceFunctions = false;
-void PPCRecompilerAArch64Gen_generateRecompilerInterfaceFunctions()
+bool PPCRecompilerAArch64Gen_generateRecompilerInterfaceFunctions()
 {
 	if (initializedInterfaceFunctions)
-		return;
+		return true;
 	initializedInterfaceFunctions = true;
 
 	static AArch64GenContext_t enterRecompilerCode_ctx{};
@@ -1760,4 +1862,10 @@ void PPCRecompilerAArch64Gen_generateRecompilerInterfaceFunctions()
 	leaveRecompilerCode_visited_ctx.leaveRecompilerCode();
 	leaveRecompilerCode_visited_ctx.readyRE();
 	PPCRecompiler_leaveRecompilerCode_visited = leaveRecompilerCode_visited_ctx.getCode<decltype(PPCRecompiler_leaveRecompilerCode_visited)>();
+	return true;
 }
+
+void PPCRecompilerAArch64Gen_shutdown()
+{
+}
+#endif

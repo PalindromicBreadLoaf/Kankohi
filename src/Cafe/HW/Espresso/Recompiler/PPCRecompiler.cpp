@@ -455,7 +455,13 @@ void PPCRecompiler_recompileAtAddress(uint32 address)
 	PPCRecFunction_t* func = PPCRecompiler_recompileFunction(range, entryAddresses, functionEntryPoints, funcBoundaries);
 	if (!func)
 		return; // recompilation failed
-	PPCRecompiler_makeRecompiledFunctionActive(address, range, func, functionEntryPoints);
+	if (!PPCRecompiler_makeRecompiledFunctionActive(address, range, func, functionEntryPoints))
+	{
+#if defined(__aarch64__)
+		PPCRecompiler_cleanupAArch64Code(func->x86Code, func->x86Size);
+#endif
+		delete func;
+	}
 }
 
 void PPCRecompiler_thread()
@@ -737,6 +743,17 @@ void PPCRecompiler_Shutdown()
         // mark as unmapped
         ppcRecompiler_reservedBlockMask[i] = false;
     }
+	if (ppcRecompilerInstanceData)
+	{
+		MemMapper::FreeReservation(ppcRecompilerInstanceData, sizeof(PPCRecompilerInstanceData_t));
+		ppcRecompilerInstanceData = nullptr;
+	}
+    for(auto& func : s_ppcRecompilerState.functions)
+        delete func;
+    s_ppcRecompilerState.functions.clear();
+#if defined(__aarch64__)
+	PPCRecompilerAArch64Gen_shutdown();
+#endif
 	s_ppcRecompilerState.recompilerEnableCount = 0;
 	s_ppcRecompilerState.initialized = false;
 }

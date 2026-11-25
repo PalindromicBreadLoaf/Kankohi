@@ -3,6 +3,7 @@
 
 #include "switch/EmulationSwitch.h"
 #include "Cafe/CafeSystem.h"
+#include "Cafe/HW/Espresso/Recompiler/PPCRecompiler.h"
 #include "Cafe/HW/Latte/Core/LatteOverlay.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h"
@@ -233,6 +234,7 @@ namespace EmulationSwitch
 		StopTitle();
 		CafeTitleList::Shutdown();
 		CafeSystem::Shutdown();
+		PPCRecompiler_Shutdown();
 		AudrenAPI::Destroy();
 		GetConfigHandle().Save();
 		s_initialised = false;

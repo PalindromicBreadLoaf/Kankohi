@@ -6,6 +6,7 @@
 #include "Cafe/HW/Latte/Core/Latte.h"
 #include "Cafe/HW/Latte/Core/LatteOverlay.h"
 #include "Common/switch/HorizonInput.h"
+#include "Common/switch/HorizonTheme.h"
 #include "input/api/Switch/SwitchController.h"
 #include "imgui/imgui_extension.h"
 
@@ -38,27 +39,62 @@ namespace
 
 	constexpr float PANEL_WIDTH = 660.0f;
 	constexpr float PANEL_PADDING = 32.0f;
-	constexpr float PANEL_ROUNDING = 18.0f;
-	constexpr float TITLE_SIZE = 30.0f;
-	constexpr float PAGE_TITLE_SIZE = 20.0f;
-	constexpr float MESSAGE_SIZE = 21.0f;
-	constexpr float ROW_HEIGHT = 46.0f;
-	constexpr float ROW_TEXT_SIZE = 23.0f;
-	constexpr float ROW_INSET = 12.0f;
-	constexpr float HEADER_HEIGHT = 38.0f;
-	constexpr float HEADER_TEXT_SIZE = 18.0f;
-	constexpr float FOOTER_SIZE = 20.0f;
+	constexpr float TITLE_SIZE = 28.0f;
+	constexpr float ROW_TEXT_SIZE = 22.0f;
+	constexpr float SMALL_TEXT_SIZE = 18.0f;
+	constexpr float ROW_HEIGHT = 48.0f;
+	constexpr float ROW_INSET = 16.0f;
+	constexpr float HEADER_HEIGHT = 44.0f;
+	constexpr float HEADER_BAR_WIDTH = 5.0f;
+	constexpr float HEADER_BAR_HEIGHT = 24.0f;
+	constexpr float HIGHLIGHT_WIDTH = 5.0f;
 	constexpr float ARROW_SIZE = 7.0f;
 
-	constexpr ImU32 BACKDROP_COLOUR = IM_COL32(0, 0, 0, 150);
-	constexpr ImU32 PANEL_COLOUR = IM_COL32(30, 32, 38, 245);
-	constexpr ImU32 PANEL_BORDER_COLOUR = IM_COL32(255, 255, 255, 24);
-	constexpr ImU32 DIVIDER_COLOUR = IM_COL32(255, 255, 255, 36);
-	constexpr ImU32 ACCENT_COLOUR = IM_COL32(0, 195, 227, 255);
-	constexpr ImU32 SELECTED_COLOUR = IM_COL32(0, 195, 227, 48);
-	constexpr ImU32 TEXT_COLOUR = IM_COL32(240, 240, 244, 255);
-	constexpr ImU32 DIM_TEXT_COLOUR = IM_COL32(160, 162, 172, 255);
-	constexpr ImU32 DISABLED_TEXT_COLOUR = IM_COL32(105, 107, 116, 255);
+	constexpr ImU32 BACKDROP_COLOUR = IM_COL32(0, 0, 0, 178);
+	constexpr ImWchar FIRST_BUTTON_GLYPH = 0xE0E0;
+
+	struct Palette
+	{
+		ImU32 background;
+		ImU32 separator;
+		ImU32 text;
+		ImU32 disabledText;
+		ImU32 subtitle;
+		ImU32 value;
+		ImU32 headerLine;
+		ImU32 headerBar;
+		ImU32 highlightBackground;
+		ImU32 highlightEdge;
+		ImU32 highlightGlow;
+	};
+
+	constexpr Palette DARK_PALETTE = {
+		.background = IM_COL32(45, 45, 45, 255),
+		.separator = IM_COL32(255, 255, 255, 255),
+		.text = IM_COL32(255, 255, 255, 255),
+		.disabledText = IM_COL32(80, 80, 80, 255),
+		.subtitle = IM_COL32(163, 163, 163, 255),
+		.value = IM_COL32(88, 195, 169, 255),
+		.headerLine = IM_COL32(78, 78, 78, 255),
+		.headerBar = IM_COL32(160, 160, 160, 255),
+		.highlightBackground = IM_COL32(31, 34, 39, 255),
+		.highlightEdge = IM_COL32(25, 138, 198, 255),
+		.highlightGlow = IM_COL32(81, 190, 220, 255),
+	};
+
+	constexpr Palette LIGHT_PALETTE = {
+		.background = IM_COL32(235, 235, 235, 255),
+		.separator = IM_COL32(45, 45, 45, 255),
+		.text = IM_COL32(45, 45, 45, 255),
+		.disabledText = IM_COL32(140, 140, 140, 255),
+		.subtitle = IM_COL32(140, 140, 140, 255),
+		.value = IM_COL32(43, 81, 226, 255),
+		.headerLine = IM_COL32(207, 207, 207, 255),
+		.headerBar = IM_COL32(127, 127, 127, 255),
+		.highlightBackground = IM_COL32(252, 255, 248, 255),
+		.highlightEdge = IM_COL32(13, 182, 213, 255),
+		.highlightGlow = IM_COL32(47, 211, 215, 255),
+	};
 
 	float TextWidth(ImFont* font, float size, const std::string& text)
 	{
@@ -111,6 +147,17 @@ namespace
 				{centre.x - size * 0.6f, centre.y + size}, colour);
 			break;
 		}
+	}
+
+	void DrawHighlight(ImDrawList* draw, ImVec2 min, ImVec2 max, float width, const Palette& palette)
+	{
+		const ImU32 edge = palette.highlightEdge;
+		const ImU32 glow = palette.highlightGlow;
+		draw->AddRectFilled(min, max, palette.highlightBackground);
+		draw->AddRectFilledMultiColor(min, {max.x, min.y + width}, glow, edge, edge, glow);
+		draw->AddRectFilledMultiColor({min.x, max.y - width}, max, edge, glow, glow, edge);
+		draw->AddRectFilledMultiColor(min, {min.x + width, max.y}, glow, glow, edge, edge);
+		draw->AddRectFilledMultiColor({max.x - width, min.y}, max, edge, edge, glow, glow);
 	}
 }
 
@@ -170,6 +217,7 @@ void PauseMenu::Open()
 	m_state = State::Open;
 	m_exitRequested = false;
 	m_settings = ShellConfig::GetPages();
+	m_darkTheme = HorizonTheme::IsDark();
 	m_pages = {Page{PageId::Main}};
 	m_nextRepeat.fill(Clock::now() + REPEAT_DELAY);
 	cemuLog_log(LogType::Force, "Paused");
@@ -460,6 +508,7 @@ void PauseMenu::Publish()
 	}
 	view.selected = page.selected;
 	view.firstVisible = page.firstVisible;
+	view.darkTheme = m_darkTheme;
 	{
 		std::scoped_lock lock(m_viewMutex);
 		m_view = std::move(view);
@@ -481,13 +530,19 @@ void PauseMenu::Draw()
 
 	const ImVec2 display = ImGui::GetIO().DisplaySize;
 	const float scale = display.y / 720.0f;
-	ImFont* font = ImGui_GetFont(std::round(TITLE_SIZE * scale));
-	if (!font)
+	const float titleSize = std::round(TITLE_SIZE * scale);
+	const float rowText = std::round(ROW_TEXT_SIZE * scale);
+	const float smallText = std::round(SMALL_TEXT_SIZE * scale);
+	ImFont* titleFont = ImGui_GetFont(titleSize);
+	ImFont* rowFont = ImGui_GetFont(rowText);
+	ImFont* smallFont = ImGui_GetFont(smallText);
+	if (!titleFont || !rowFont || !smallFont)
 	{
 		// Loads before the next frame
 		Latte_RequestRedraw();
 		return;
 	}
+	const Palette& palette = m_view.darkTheme ? DARK_PALETTE : LIGHT_PALETTE;
 	ImDrawList* draw = ImGui::GetForegroundDrawList();
 
 	const float width = PANEL_WIDTH * scale;
@@ -495,9 +550,8 @@ void PauseMenu::Draw()
 	const float innerWidth = width - padding * 2.0f;
 	const float rowHeight = ROW_HEIGHT * scale;
 	const float headerHeight = HEADER_HEIGHT * scale;
-	const float rowText = ROW_TEXT_SIZE * scale;
-	const float messageSize = MESSAGE_SIZE * scale;
-	const float footerSize = FOOTER_SIZE * scale;
+	const float highlightWidth = std::max(std::round(HIGHLIGHT_WIDTH * scale * 0.5f), 1.0f);
+	const float lineWidth = std::max(std::round(scale), 1.0f);
 	const float arrow = ARROW_SIZE * scale;
 
 	const int rowCount = (int)m_view.rows.size();
@@ -509,32 +563,35 @@ void PauseMenu::Draw()
 		listHeight += m_view.rows[i].kind == RowKind::Header ? headerHeight : rowHeight;
 	float messageHeight = 0.0f;
 	if (!m_view.message.empty())
-		messageHeight = font->CalcTextSizeA(messageSize, FLT_MAX, innerWidth, m_view.message.c_str()).y + 14.0f * scale;
-	const float headingHeight = (TITLE_SIZE + 4.0f + PAGE_TITLE_SIZE + 16.0f) * scale + 12.0f * scale;
-	const float footerHeight = (12.0f + 14.0f) * scale + footerSize;
+		messageHeight = smallFont->CalcTextSizeA(smallText, FLT_MAX, innerWidth, m_view.message.c_str()).y + 14.0f * scale;
+	const float headingHeight = titleSize + smallText + (4.0f + 16.0f + 12.0f) * scale;
+	const float footerHeight = (12.0f + 16.0f) * scale + smallText;
 	const float height = padding * 2.0f + headingHeight + messageHeight + listHeight + footerHeight;
 
 	const ImVec2 panelMin{std::floor((display.x - width) * 0.5f), std::floor((display.y - height) * 0.5f)};
-	const ImVec2 panelMax{panelMin.x + width, panelMin.y + height};
+	const ImVec2 panelMax{panelMin.x + std::floor(width), panelMin.y + std::floor(height)};
 	const float left = panelMin.x + padding;
 	const float right = panelMax.x - padding;
+	const auto drawLine = [&](float lineY, ImU32 colour) {
+		lineY = std::floor(lineY);
+		draw->AddRectFilled({left, lineY}, {right, lineY + lineWidth}, colour);
+	};
 
 	draw->AddRectFilled({0.0f, 0.0f}, display, BACKDROP_COLOUR);
-	draw->AddRectFilled(panelMin, panelMax, PANEL_COLOUR, PANEL_ROUNDING * scale);
-	draw->AddRect(panelMin, panelMax, PANEL_BORDER_COLOUR, PANEL_ROUNDING * scale, 0, scale);
+	draw->AddRectFilled(panelMin, panelMax, palette.background);
 
 	float y = panelMin.y + padding;
-	const std::string title = Truncate(font, TITLE_SIZE * scale, m_title, innerWidth);
-	draw->AddText(font, TITLE_SIZE * scale, {left, y}, TEXT_COLOUR, title.c_str());
-	y += (TITLE_SIZE + 4.0f) * scale;
-	draw->AddText(font, PAGE_TITLE_SIZE * scale, {left, y}, ACCENT_COLOUR, m_view.pageTitle.c_str());
-	y += (PAGE_TITLE_SIZE + 16.0f) * scale;
-	draw->AddLine({left, y}, {right, y}, DIVIDER_COLOUR, scale);
+	const std::string title = Truncate(titleFont, titleSize, m_title, innerWidth);
+	draw->AddText(titleFont, titleSize, {left, y}, palette.text, title.c_str());
+	y += titleSize + 4.0f * scale;
+	draw->AddText(smallFont, smallText, {left, y}, palette.subtitle, m_view.pageTitle.c_str());
+	y += smallText + 16.0f * scale;
+	drawLine(y, palette.separator);
 	y += 12.0f * scale;
 
 	if (!m_view.message.empty())
 	{
-		draw->AddText(font, messageSize, {left, y}, DIM_TEXT_COLOUR, m_view.message.c_str(), nullptr, innerWidth);
+		draw->AddText(smallFont, smallText, {left, y}, palette.subtitle, m_view.message.c_str(), nullptr, innerWidth);
 		y += messageHeight;
 	}
 
@@ -544,25 +601,24 @@ void PauseMenu::Draw()
 		const Row& row = m_view.rows[i];
 		if (row.kind == RowKind::Header)
 		{
-			const float textY = y + headerHeight - HEADER_TEXT_SIZE * scale - 8.0f * scale;
-			draw->AddText(font, HEADER_TEXT_SIZE * scale, {left, textY}, DIM_TEXT_COLOUR, row.label.c_str());
+			const float barTop = y + (headerHeight - HEADER_BAR_HEIGHT * scale) * 0.5f;
+			const float barRight = left + HEADER_BAR_WIDTH * scale;
+			draw->AddRectFilled({left, barTop}, {barRight, barTop + HEADER_BAR_HEIGHT * scale}, palette.headerBar);
+			draw->AddText(smallFont, smallText, {barRight + 10.0f * scale, y + (headerHeight - smallText) * 0.5f}, palette.text, row.label.c_str());
 			y += headerHeight;
+			drawLine(y - lineWidth, palette.headerLine);
 			continue;
 		}
 
 		const bool selected = i == m_view.selected;
-		const ImVec2 rowMin{panelMin.x + ROW_INSET * scale, y};
-		const ImVec2 rowMax{panelMax.x - ROW_INSET * scale, y + rowHeight};
 		if (selected)
-		{
-			draw->AddRectFilled(rowMin, rowMax, SELECTED_COLOUR, 10.0f * scale);
-			draw->AddRect(rowMin, rowMax, ACCENT_COLOUR, 10.0f * scale, 0, 2.0f * scale);
-		}
+			DrawHighlight(draw, {std::floor(panelMin.x + ROW_INSET * scale), std::floor(y)},
+				{std::floor(panelMax.x - ROW_INSET * scale), std::floor(y + rowHeight)}, highlightWidth, palette);
 
 		const float textY = y + (rowHeight - rowText) * 0.5f;
 		const float centreY = y + rowHeight * 0.5f;
-		const ImU32 labelColour = row.enabled ? TEXT_COLOUR : DISABLED_TEXT_COLOUR;
-		const ImU32 valueColour = !row.enabled ? DISABLED_TEXT_COLOUR : (selected ? TEXT_COLOUR : DIM_TEXT_COLOUR);
+		const ImU32 labelColour = row.enabled ? palette.text : palette.disabledText;
+		const ImU32 valueColour = row.enabled ? palette.value : palette.disabledText;
 
 		float valueRight = right;
 		if (row.kind == RowKind::Submenu)
@@ -573,36 +629,37 @@ void PauseMenu::Draw()
 		const bool arrows = row.kind == RowKind::Choice && selected && row.enabled;
 		if (arrows)
 		{
-			DrawArrow(draw, {right - arrow * 0.6f, centreY}, arrow, ArrowDirection::Right, ACCENT_COLOUR);
+			DrawArrow(draw, {right - arrow * 0.6f, centreY}, arrow, ArrowDirection::Right, palette.value);
 			valueRight -= arrow * 3.0f;
 		}
 
-		const float labelWidth = TextWidth(font, rowText, row.label);
+		const float labelWidth = TextWidth(rowFont, rowText, row.label);
 		float valueWidth = 0.0f;
 		if (!row.value.empty())
 		{
 			const float space = valueRight - left - labelWidth - 32.0f * scale - (arrows ? arrow * 3.0f : 0.0f);
-			const std::string value = Truncate(font, rowText, row.value, std::max(space, 0.0f));
-			valueWidth = TextWidth(font, rowText, value);
-			draw->AddText(font, rowText, {valueRight - valueWidth, textY}, valueColour, value.c_str());
+			const std::string value = Truncate(rowFont, rowText, row.value, std::max(space, 0.0f));
+			valueWidth = TextWidth(rowFont, rowText, value);
+			draw->AddText(rowFont, rowText, {valueRight - valueWidth, textY}, valueColour, value.c_str());
 		}
 		if (arrows)
-			DrawArrow(draw, {valueRight - valueWidth - arrow * 2.0f, centreY}, arrow, ArrowDirection::Left, ACCENT_COLOUR);
+			DrawArrow(draw, {valueRight - valueWidth - arrow * 2.0f, centreY}, arrow, ArrowDirection::Left, palette.value);
 
-		const std::string label = Truncate(font, rowText, row.label, innerWidth);
-		draw->AddText(font, rowText, {left, textY}, labelColour, label.c_str());
+		const std::string label = Truncate(rowFont, rowText, row.label, innerWidth);
+		draw->AddText(rowFont, rowText, {left, textY}, labelColour, label.c_str());
 		y += rowHeight;
 	}
 
 	if (first > 0)
-		DrawArrow(draw, {right, listTop - 6.0f * scale}, arrow * 0.8f, ArrowDirection::Up, DIM_TEXT_COLOUR);
+		DrawArrow(draw, {right, listTop - 6.0f * scale}, arrow * 0.8f, ArrowDirection::Up, palette.subtitle);
 	if (last < rowCount)
-		DrawArrow(draw, {right, y + 6.0f * scale}, arrow * 0.8f, ArrowDirection::Down, DIM_TEXT_COLOUR);
+		DrawArrow(draw, {right, y + 6.0f * scale}, arrow * 0.8f, ArrowDirection::Down, palette.subtitle);
 
 	y += 12.0f * scale;
-	draw->AddLine({left, y}, {right, y}, DIVIDER_COLOUR, scale);
-	y += 14.0f * scale;
-	const std::string hints = "A Select    B Back    + Resume";
-	const float hintsWidth = TextWidth(font, footerSize, hints);
-	draw->AddText(font, footerSize, {right - hintsWidth, y}, DIM_TEXT_COLOUR, hints.c_str());
+	drawLine(y, palette.separator);
+	y += 16.0f * scale;
+	const bool hasButtonGlyphs = smallFont->FindGlyphNoFallback(FIRST_BUTTON_GLYPH) != nullptr;
+	const std::string hints = hasButtonGlyphs ? "\uE0E0 OK    \uE0E1 Back    \uE0EF Resume" : "A OK    B Back    + Resume";
+	const float hintsWidth = TextWidth(smallFont, smallText, hints);
+	draw->AddText(smallFont, smallText, {right - hintsWidth, y}, palette.text, hints.c_str());
 }

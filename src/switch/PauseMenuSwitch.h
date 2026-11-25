@@ -79,6 +79,7 @@ private:
 		std::vector<Row> rows;
 		int selected = 0;
 		int firstVisible = 0;
+		bool darkTheme = true;
 	};
 
 	void Open();
@@ -110,6 +111,7 @@ private:
 	State m_state = State::Closed;
 	bool m_exitRequested = false;
 	bool m_configDirty = false;
+	bool m_darkTheme = true;
 
 	uint64_t m_previousButtons = 0;
 	std::optional<Clock::time_point> m_minusPressedAt;

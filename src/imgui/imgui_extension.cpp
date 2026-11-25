@@ -10,6 +10,9 @@
 #include "imgui_impl_vulkan.h"
 #endif
 #include "input/InputManager.h"
+#if defined(__SWITCH__)
+#include "Common/switch/HorizonTheme.h"
+#endif
 
 // <imgui_internal.h>
 template<typename T> static T ImMin(T lhs, T rhs) { return lhs < rhs ? lhs : rhs; }
@@ -60,15 +63,26 @@ void ImGui_PrecacheFonts()
 	{
 		const int size = g_font_requests.top();
 		g_font_requests.pop();
-		
+
 		auto& io = ImGui::GetIO();
 		cemu_assert(io.Fonts->Locked == false);
 
+#if defined(__SWITCH__)
+		if (const std::span<const uint8> systemFont = HorizonTheme::GetStandardFont(); g_font_size == 0 && !systemFont.empty())
+		{
+			g_font_data = const_cast<uint8*>(systemFont.data());
+			g_font_size = (sint32)systemFont.size();
+		}
+#endif
 		if (g_font_size == 0)
 			g_font_data = extractCafeDefaultFont(&g_font_size);
 
 		ImFontConfig cfg{};
 		cfg.FontDataOwnedByAtlas = false;
+#if defined(__SWITCH__)
+		static const ImWchar text_ranges[] = { 0x0020, 0x017F, 0x2010, 0x205E, 0x20A0, 0x20BF, 0x2100, 0x214F, 0 };
+		cfg.GlyphRanges = text_ranges;
+#endif
 		//cfg.FontData = g_font_data;
 		//cfg.FontDataSize = g_font_size;
 		//cfg.SizePixels = size;
@@ -98,6 +112,15 @@ void ImGui_PrecacheFonts()
 		}
 #else
 		io.Fonts->AddFontFromMemoryTTF((void*)g_fontawesome_data, (int)g_fontawesome_size, (float)size, &cfgmerge, icon_ranges);
+#endif
+
+#if defined(__SWITCH__)
+		if (const std::span<const uint8> symbolFont = HorizonTheme::GetSymbolFont(); !symbolFont.empty())
+		{
+			static const ImWchar button_ranges[] = { 0xE0E0, 0xE0FF, 0 };
+			cfgmerge.GlyphMinAdvanceX = 0.0f;
+			io.Fonts->AddFontFromMemoryTTF(const_cast<uint8*>(symbolFont.data()), (int)symbolFont.size(), (float)size, &cfgmerge, button_ranges);
+		}
 #endif
 
 		g_imgui_fonts[(int)size] = font;
@@ -172,19 +195,19 @@ void ImGui_UpdateWindowInformation(bool mainWindow)
 
 		if (controller->is_a_down())
 			io.NavInputs[ImGuiNavInput_Activate] = 1.0f;
-		
+
 		if (controller->is_b_down())
 			io.NavInputs[ImGuiNavInput_Cancel] = 1.0f;
-		
+
 		if (controller->is_left_down())
 			io.NavInputs[ImGuiNavInput_DpadLeft] = 1.0f;
-		
+
 		if (controller->is_right_down())
 			io.NavInputs[ImGuiNavInput_DpadRight] = 1.0f;
-		
+
 		if (controller->is_up_down())
 			io.NavInputs[ImGuiNavInput_DpadUp] = 1.0f;
-		
+
 		if (controller->is_down_down())
 			io.NavInputs[ImGuiNavInput_DpadDown] = 1.0f;
 	}

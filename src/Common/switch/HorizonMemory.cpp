@@ -4,6 +4,7 @@
 #include "HorizonMemory.h"
 
 #include <cstdlib>
+#include <new>
 
 #include <switch.h>
 
@@ -78,6 +79,45 @@ namespace HorizonMemory
 		std::free(segment.backing);
 		segment = {};
 		return 0;
+	}
+
+	uint32_t CreateCodeRegion(CodeRegion& region, size_t size)
+	{
+		Jit* jit = new (std::nothrow) Jit{};
+		if (!jit)
+			return MAKERESULT(Module_Libnx, LibnxError_OutOfMemory);
+		Result result = jitCreate(jit, size);
+		if (R_FAILED(result))
+		{
+			delete jit;
+			return result;
+		}
+		result = jit->type == JitType_CodeMemory ? jitTransitionToExecutable(jit) : MAKERESULT(Module_Libnx, LibnxError_JitUnavailable);
+		if (R_FAILED(result))
+		{
+			jitClose(jit);
+			delete jit;
+			return result;
+		}
+		region = {jit, (uint8_t*)jitGetRwAddr(jit), (uint8_t*)jitGetRxAddr(jit), size};
+		return 0;
+	}
+
+	uint32_t DestroyCodeRegion(CodeRegion& region)
+	{
+		if (!region.jit)
+			return 0;
+		Jit* jit = (Jit*)region.jit;
+		const Result result = jitClose(jit);
+		delete jit;
+		region = {};
+		return result;
+	}
+
+	void FlushCode(const CodeRegion& region, size_t offset, size_t size)
+	{
+		armDCacheClean(region.writable + offset, size);
+		armICacheInvalidate(region.executable + offset, size);
 	}
 
 	void* ReserveAddressSpace(size_t size, size_t alignment, void** reservation)

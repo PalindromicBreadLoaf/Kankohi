@@ -23,6 +23,19 @@ namespace HorizonMemory
 	uint32_t CreateSegment(Segment& segment, size_t size);
 	uint32_t DestroySegment(Segment& segment);
 
+	// Executable memory with a separate writable alias
+	struct CodeRegion
+	{
+		void* jit = nullptr;
+		uint8_t* writable = nullptr;
+		uint8_t* executable = nullptr;
+		size_t size = 0;
+	};
+
+	uint32_t CreateCodeRegion(CodeRegion& region, size_t size);
+	uint32_t DestroyCodeRegion(CodeRegion& region);
+	void FlushCode(const CodeRegion& region, size_t offset, size_t size);
+
 	void* ReserveAddressSpace(size_t size, size_t alignment, void** reservation);
 	void ReleaseAddressSpace(void* reservation);
 

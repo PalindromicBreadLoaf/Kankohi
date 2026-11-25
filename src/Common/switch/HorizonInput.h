@@ -36,4 +36,6 @@ namespace HorizonInput
 	void SetRumble(int player, float amplitude);
 	void StopAllRumble();
 	uint64_t GetHeldButtons();
+
+	bool GetTouch(int& x, int& y);
 }

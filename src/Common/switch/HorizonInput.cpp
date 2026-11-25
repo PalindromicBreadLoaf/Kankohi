@@ -174,6 +174,7 @@ namespace HorizonInput
 			return;
 		padConfigureInput(MAX_PLAYERS, HidNpadStyleSet_NpadStandard | HidNpadStyleTag_NpadGc);
 		hidSetNpadJoyHoldType(HidNpadJoyHoldType_Vertical);
+		hidInitializeTouchScreen();
 		for (int i = 0; i < MAX_PLAYERS; i++)
 		{
 			Slot& slot = s_slots[i];
@@ -277,5 +278,17 @@ namespace HorizonInput
 		for (const Slot& slot : s_slots)
 			buttons |= slot.heldButtons.load(std::memory_order_relaxed);
 		return buttons;
+	}
+
+	bool GetTouch(int& x, int& y)
+	{
+		if (!s_initialised)
+			return false;
+		HidTouchScreenState state{};
+		if (hidGetTouchScreenStates(&state, 1) != 1 || state.count == 0)
+			return false;
+		x = static_cast<int>(state.touches[0].x);
+		y = static_cast<int>(state.touches[0].y);
+		return true;
 	}
 }

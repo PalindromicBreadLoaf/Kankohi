@@ -4,6 +4,7 @@
 #include "switch/EmulationSwitch.h"
 #include "Cafe/CafeSystem.h"
 #include "Cafe/HW/Espresso/Recompiler/PPCRecompiler.h"
+#include "Cafe/HW/Latte/Core/Latte.h"
 #include "Cafe/HW/Latte/Core/LatteOverlay.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanAPI.h"
 #include "Cafe/HW/Latte/Renderer/Vulkan/VulkanRenderer.h"
@@ -11,6 +12,7 @@
 #include "Cafe/TitleList/TitleList.h"
 #include "Cemu/ncrypto/ncrypto.h"
 #include "Common/switch/HorizonApplet.h"
+#include "Common/switch/HorizonInput.h"
 #include "audio/AudrenAPI.h"
 #include "config/ActiveSettings.h"
 #include "config/CemuConfig.h"
@@ -165,6 +167,27 @@ namespace
 		windowInfo.height = windowInfo.phys_height = height;
 	}
 
+	void UpdateTouch()
+	{
+		constexpr int TOUCH_WIDTH = 1280;
+		constexpr int TOUCH_HEIGHT = 720;
+		const bool accepting = LatteRenderTarget_isDRCShown() && !CafeSystem::IsTitlePaused();
+		int x, y;
+		const bool touching = HorizonInput::GetTouch(x, y) && accepting;
+		auto& windowInfo = WindowSystem::GetWindowInfo();
+		auto& touch = InputManager::instance().m_main_touch;
+		std::scoped_lock lock(touch.m_mutex);
+		if (touching)
+		{
+			touch.position = {x * windowInfo.phys_width / TOUCH_WIDTH, y * windowInfo.phys_height / TOUCH_HEIGHT};
+			if (!touch.left_down)
+				touch.left_down_toggle = true;
+		}
+		else if (!accepting)
+			touch.left_down_toggle = false;
+		touch.left_down = touching;
+	}
+
 	void SystemImplementationSwitch::ServiceRecreate()
 	{
 		std::unique_lock lock(m_mutex);
@@ -291,6 +314,7 @@ namespace EmulationSwitch
 	{
 		s_systemImplementation.ServiceRecreate();
 		FollowDisplaySize();
+		UpdateTouch();
 		KeyboardSwitch::Pump();
 	}
 

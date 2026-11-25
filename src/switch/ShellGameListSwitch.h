@@ -25,6 +25,7 @@ namespace Shell
 	private:
 		void OnRunLoop();
 		void Rebuild();
+		brls::View* ShowPlaceholder();
 		void FocusRow(size_t row);
 		void ShowDetails(const ShellLibrary::Title& title);
 		void ShowIcon(const ShellLibrary::Title& title);

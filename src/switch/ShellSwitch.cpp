@@ -4,6 +4,7 @@
 #include "switch/ShellSwitch.h"
 #include "switch/ShellGameListSwitch.h"
 #include "switch/ShellLibrarySwitch.h"
+#include "Common/switch/HorizonDiagnostics.h"
 
 #include <cstdio>
 
@@ -91,6 +92,7 @@ namespace Shell
 			return std::nullopt;
 		brls::Application::createWindow("Kankohi");
 		brls::Application::setGlobalQuit(true);
+		HorizonDiagnostics::Log("shell: window created");
 
 		std::optional<ShellLibrary::Title> chosen;
 		ShellLibrary::Start();
@@ -109,11 +111,13 @@ namespace Shell
 		while (brls::Application::mainLoop())
 		{
 		}
+		HorizonDiagnostics::Log("shell: main loop ended");
 
 		ShellLibrary::Stop();
 		brls::Threading::getSyncFunctions()->clear();
 		facebook::yoga::Event::reset();
 		RestoreAppletState();
+		HorizonDiagnostics::Log("shell: closed");
 
 		if (!chosen)
 			return std::nullopt;

@@ -141,7 +141,7 @@ namespace Shell
 		});
 
 		m_runLoopSubscription = brls::Application::getRunLoopEvent()->subscribe([this] { OnRunLoop(); });
-		Rebuild();
+		ShowPlaceholder();
 	}
 
 	GameListView::~GameListView()
@@ -210,16 +210,7 @@ namespace Shell
 
 		if (m_titles.empty())
 		{
-			auto* empty = new brls::DetailCell();
-			empty->setText(m_wasScanning ? "Looking for titles..." : "No titles found");
-			empty->setDetailText(fmt::to_string(fmt::join(ShellLibrary::GetGameDirectories(), ", ")));
-			empty->registerClickAction([this](brls::View*) {
-				Rescan();
-				return true;
-			});
-			m_list->addView(empty);
-			m_details->setVisibility(brls::Visibility::INVISIBLE);
-			brls::Application::giveFocus(empty);
+			brls::Application::giveFocus(ShowPlaceholder());
 			return;
 		}
 
@@ -245,6 +236,20 @@ namespace Shell
 				focusRow = row;
 		}
 		FocusRow(focusRow);
+	}
+
+	brls::View* GameListView::ShowPlaceholder()
+	{
+		auto* cell = new brls::DetailCell();
+		cell->setText(m_wasScanning || m_generation == 0 ? "Looking for titles..." : "No titles found");
+		cell->setDetailText(fmt::to_string(fmt::join(ShellLibrary::GetGameDirectories(), ", ")));
+		cell->registerClickAction([this](brls::View*) {
+			Rescan();
+			return true;
+		});
+		m_list->addView(cell);
+		m_details->setVisibility(brls::Visibility::INVISIBLE);
+		return cell;
 	}
 
 	void GameListView::FocusRow(size_t row)

@@ -80,6 +80,8 @@ static void RunTitle(const std::string& exitLabel)
 	if (boosting)
 		HorizonApplet::EndBoost();
 	EmulationSwitch::StopTitle();
+	HorizonDiagnostics::AuditThreads("title stopped");
+	HorizonDiagnostics::AuditHeap("title stopped");
 }
 
 static std::string LaunchAndRun(const fs::path& path, const std::string& exitLabel)

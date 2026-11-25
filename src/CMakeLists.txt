@@ -104,6 +104,7 @@ if(NINTENDO_SWITCH)
 		Common/switch/HorizonMalloc.c
 		Common/switch/HorizonMemory.cpp
 		Common/switch/HorizonNetwork.cpp
+		Common/switch/HorizonTheme.cpp
 	)
 	target_sources(CemuBin PRIVATE
 		${HORIZON_SOURCES}

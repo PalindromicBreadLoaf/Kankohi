@@ -51,6 +51,7 @@ struct
 	std::atomic_bool workerThreadStopSignal{false};
 	// function storage
 	RangeStore<PPCRecFunction_t*, uint32, 7703, 0x2000> functionStorage;
+	std::vector<PPCRecFunction_t*> functions;
 }s_ppcRecompilerState;
 
 void ATTR_MS_ABI (*PPCRecompiler_enterRecompilerCode)(uint64 codeMem, uint64 ppcInterpreterInstance);
@@ -240,12 +241,14 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 	bool x64GenerationSuccess = PPCRecompiler_generateX64Code(ppcRecFunc, &ppcImlGenContext);
 	if (x64GenerationSuccess == false)
 	{
+		delete ppcRecFunc;
 		return nullptr;
 	}
 #elif defined(__aarch64__)
 	bool aarch64GenerationSuccess = PPCRecompiler_generateAArch64Code(ppcRecFunc, &ppcImlGenContext);
 	if (aarch64GenerationSuccess == false)
 	{
+		delete ppcRecFunc;
 		return nullptr;
 	}
 #endif
@@ -421,6 +424,7 @@ bool PPCRecompiler_makeRecompiledFunctionActive(uint32 initialEntryPoint, PPCFun
 	{
 		r.storedRange = s_ppcRecompilerState.functionStorage.storeRange(ppcRecFunc, r.ppcAddress, r.ppcAddress + r.ppcSize);
 	}
+	s_ppcRecompilerState.functions.emplace_back(ppcRecFunc);
 	s_ppcRecompilerState.recompilerSpinlock.unlock();
 	return true;
 }
@@ -668,6 +672,7 @@ void PPCRecompiler_initPlatform()
 
 void PPCRecompiler_init()
 {
+	PPCRecompiler_Shutdown();
 	s_ppcRecompilerState.recompilerEnableCount = 0;
 	if (ActiveSettings::GetCPUMode() == CPUMode::SinglecoreInterpreter)
 	{
@@ -679,18 +684,18 @@ void PPCRecompiler_init()
 		cemuLog_log(LogType::Force, "Recompiler disabled. Command line --force-interpreter or force-multicore-interpreter was passed");
 		return;
 	}
-	if (ppcRecompilerInstanceData)
-	{
-		MemMapper::FreeReservation(ppcRecompilerInstanceData, sizeof(PPCRecompilerInstanceData_t));
-		ppcRecompilerInstanceData = nullptr;
-	}
 	cemuLog_logDebug(LogType::Force, "Reserving {}MB for recompiler instance data", (sint32)(sizeof(PPCRecompilerInstanceData_t) / 1024 / 1024));
 	ppcRecompilerInstanceData = (PPCRecompilerInstanceData_t*)MemMapper::ReserveMemory(nullptr, sizeof(PPCRecompilerInstanceData_t), MemMapper::PAGE_PERMISSION::P_RW);
 	MemMapper::AllocateMemory(&(ppcRecompilerInstanceData->_x64XMM_xorNegateMaskBottom), sizeof(PPCRecompilerInstanceData_t) - offsetof(PPCRecompilerInstanceData_t, _x64XMM_xorNegateMaskBottom), MemMapper::PAGE_PERMISSION::P_RW, true);
 #ifdef ARCH_X86_64
 	PPCRecompilerX64Gen_generateRecompilerInterfaceFunctions();
 #elif defined(__aarch64__)
-	PPCRecompilerAArch64Gen_generateRecompilerInterfaceFunctions();
+	if (!PPCRecompilerAArch64Gen_generateRecompilerInterfaceFunctions())
+	{
+		cemuLog_log(LogType::Force, "Recompiler disabled");
+		PPCRecompiler_Shutdown();
+		return;
+	}
 #endif
     PPCRecompiler_allocateRange(0, 0x1000); // the first entry is used for fallback to interpreter
     PPCRecompiler_allocateRange(mmuRange_TRAMPOLINE_AREA.getBase(), mmuRange_TRAMPOLINE_AREA.getSize());

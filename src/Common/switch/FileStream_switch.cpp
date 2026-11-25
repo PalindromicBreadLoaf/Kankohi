@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 PalindromicBreadLoaf
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "Common/switch/FileStream_switch.h"
+#include "Common/FileStream.h"
 #include <cstdarg>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -586,22 +586,37 @@ bool FileStream::WriteFileAtomic(const fs::path& path, std::span<uint8> fileData
 		return false;
 	}
 
-	fs::rename(tempPath, path, ec);
-	if (!ec)
-		return true;
-	std::error_code removeError;
-	if (!fs::remove(path, removeError))
-	{
-		cemuLog_log(LogType::Force, "Failed to replace file {} with error {}", _pathToUtf8(path), ec.message());
-		fs::remove(tempPath, removeError);
-		return false;
-	}
-	ec.clear();
-	fs::rename(tempPath, path, ec);
+	RenameReplacing(tempPath, path, ec);
 	if (ec)
 	{
-		cemuLog_log(LogType::Force, "Failed to replace file {} with error {}. The new contents are in {}", _pathToUtf8(path), ec.message(), _pathToUtf8(tempPath));
+		cemuLog_log(LogType::Force, "Failed to replace file {} with error {}", _pathToUtf8(path), ec.message());
+		fs::remove(tempPath, ec);
 		return false;
 	}
 	return true;
+}
+
+void RenameReplacing(const fs::path& source, const fs::path& target, std::error_code& ec)
+{
+	fs::rename(source, target, ec);
+	if (ec != std::errc::file_exists || MakeRegistryKey(source) == MakeRegistryKey(target))
+		return;
+	std::error_code fileError;
+	if (!fs::is_regular_file(source, fileError) || !fs::is_regular_file(target, fileError))
+		return;
+	fs::path backupPath = target;
+	backupPath += ".backup";
+	fs::remove(backupPath, fileError);
+	fs::rename(target, backupPath, ec);
+	if (ec)
+		return;
+	fs::rename(source, target, ec);
+	if (ec)
+	{
+		fs::rename(backupPath, target, fileError);
+		if (fileError)
+			cemuLog_log(LogType::Force, "Failed to restore {} from {}", _pathToUtf8(target), _pathToUtf8(backupPath));
+		return;
+	}
+	fs::remove(backupPath, fileError);
 }

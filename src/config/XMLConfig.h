@@ -30,7 +30,7 @@ public:
 		const auto* element = m_current_element
 			? m_current_element->FirstChildElement(name)
 			: m_document->FirstChildElement(name);
-		
+
 		if (element == nullptr)
 			return default_value;
 
@@ -51,16 +51,16 @@ public:
 			const char* text = element->GetText();
 			return text ? text : default_value;
 		}
-		
+
 		return default_value;
 	}
-	
+
 	template <typename T>
 	T get(const char* name, const ConfigValue<T>& default_value)
 	{
 		return get(name, default_value.GetInitValue());
 	}
-	
+
 	template <typename T>
 	T get(const char* name, const ConfigValueBounds<T>& default_value)
 	{
@@ -143,7 +143,7 @@ public:
 
 		return arr;
 	}
-	
+
 	template <typename T>
 	T value(T default_value = T())
 	{
@@ -284,7 +284,7 @@ public:
 		cemu_assert_debug(m_current_element != nullptr);
 		if (m_current_element)
 			m_current_element->SetAttribute(name, value);
-		
+
 		return *this;
 	}
 
@@ -299,7 +299,7 @@ public:
 	{
 		return set_attribute(name, value.GetValue());
 	}
-	
+
 	XMLConfigParser& set_attribute(const char* name, const std::string& value)
 	{
 		return set_attribute(name, value.c_str());
@@ -366,7 +366,7 @@ public:
 		fs->readData(xmlData.data(), xmlData.size());
 		delete fs;
 
-		tinyxml2::XMLDocument doc;		
+		tinyxml2::XMLDocument doc;
 		const tinyxml2::XMLError error = doc.Parse((const char*)xmlData.data(), xmlData.size());
 		const bool success = error == tinyxml2::XML_SUCCESS;
 		if (error != 0)
@@ -437,7 +437,7 @@ public:
 		fflush(file);
 		fclose(file);
 
-		fs::rename(tmp_name, filename, err);
+		RenameReplacing(tmp_name, filename, err);
 		if(err)
 		{
 			cemuLog_log(LogType::Force, "Unable to save settings to file: {}", err.message().c_str());

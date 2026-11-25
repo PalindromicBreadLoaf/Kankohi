@@ -150,7 +150,7 @@ void CafeTitleList::StoreCacheFile()
 	fileOut.close();
 
 	std::error_code ec;
-	fs::rename(tmpPath, sTLCacheFilePath, ec);
+	RenameReplacing(tmpPath, sTLCacheFilePath, ec);
 }
 
 void CafeTitleList::ClearScanPaths()

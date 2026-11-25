@@ -8,3 +8,12 @@
 #else
 #include "Common/unix/FileStream_unix.h"
 #endif
+
+#ifdef __SWITCH__
+void RenameReplacing(const fs::path& source, const fs::path& target, std::error_code& ec);
+#else
+inline void RenameReplacing(const fs::path& source, const fs::path& target, std::error_code& ec)
+{
+	fs::rename(source, target, ec);
+}
+#endif

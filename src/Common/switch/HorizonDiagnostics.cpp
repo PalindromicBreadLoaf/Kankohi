@@ -56,6 +56,8 @@ namespace
 		std::array<uintptr_t, 2> argWords;
 	};
 
+	RMutex s_logMutex;
+
 	std::mutex s_liveMutex;
 	std::vector<LiveThread> s_liveThreads;
 
@@ -224,8 +226,10 @@ namespace HorizonDiagnostics
 			return;
 		length = std::min<int>(length, sizeof(line) - 2);
 		line[length++] = '\n';
+		rmutexLock(&s_logMutex);
 		if (s_logFd >= 0)
 			(void)write(s_logFd, line, length);
+		rmutexUnlock(&s_logMutex);
 		std::fwrite(line, 1, length, stdout);
 	}
 

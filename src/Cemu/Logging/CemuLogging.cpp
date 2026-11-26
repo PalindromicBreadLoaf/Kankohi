@@ -71,24 +71,47 @@ void cemuLog_clearCallbacks()
 	s_loggingDispatcher.clearCallbacks();
 }
 
+#if defined(__SWITCH__)
+static constexpr auto LOG_FLUSH_INTERVAL = std::chrono::milliseconds(250);
+#else
+static constexpr auto LOG_FLUSH_INTERVAL = std::chrono::milliseconds(0);
+#endif
+static constexpr size_t LOG_STREAM_BUFFER_SIZE = 1024 * 1024;
+static constexpr size_t LOG_MAX_PENDING_BYTES = 4 * 1024 * 1024;
+
 struct _LogContext
 {
 	std::condition_variable_any log_condition;
+	std::condition_variable_any flush_condition;
 	std::recursive_mutex log_mutex;
+	std::unique_ptr<char[]> stream_buffer;
 	std::ofstream file_stream;
 	std::vector<std::string> text_cache;
+	size_t pending_bytes = 0;
+	uint64 dropped_lines = 0;
+	bool writing = false;
+	bool flush_requested = false;
 	std::thread log_writer;
 	std::atomic<bool> threadRunning = false;
+
+	void Shutdown()
+	{
+		{
+			std::unique_lock lock(log_mutex);
+			threadRunning.store(false);
+		}
+		if (log_writer.joinable())
+		{
+			log_condition.notify_all();
+			flush_condition.notify_all();
+			log_writer.join();
+		}
+	}
 
 	~_LogContext()
 	{
 		// safely shut down the log writer thread
-		threadRunning.store(false);
-		if (log_writer.joinable())
-		{
-			log_condition.notify_one();
-			log_writer.join();
-		}
+		Shutdown();
 	}
 }LogContext;
 
@@ -132,24 +155,31 @@ void cemuLog_thread()
 {
 	SetThreadName("cemuLog_thread");
 	SetHostThreadRole(HostThreadRole::Background);
+	std::unique_lock lock(LogContext.log_mutex);
 	while (true)
 	{
-		std::unique_lock lock(LogContext.log_mutex);
-		while (LogContext.text_cache.empty())
-		{
-			LogContext.log_condition.wait(lock);
-			if (!LogContext.threadRunning.load(std::memory_order::relaxed))
-				return;
-		}
+		LogContext.log_condition.wait(lock, [] { return !LogContext.text_cache.empty() || !LogContext.threadRunning.load(); });
+		if (LogContext.text_cache.empty())
+			return;
 
 		std::vector<std::string> cache_copy;
 		cache_copy.swap(LogContext.text_cache); // fast copy & clear
+		const uint64 droppedLines = std::exchange(LogContext.dropped_lines, 0);
+		LogContext.pending_bytes = 0;
+		LogContext.writing = true;
 		lock.unlock();
 
 		for (const auto& entry : cache_copy)
 			LogContext.file_stream.write(entry.data(), entry.size());
+		if (droppedLines != 0)
+			LogContext.file_stream << fmt::format("({} log lines dropped)\n", droppedLines);
 
 		LogContext.file_stream.flush();
+
+		lock.lock();
+		LogContext.writing = false;
+		LogContext.flush_condition.wait_for(lock, LOG_FLUSH_INTERVAL, [] { return LogContext.flush_requested || !LogContext.threadRunning.load(); });
+		LogContext.flush_requested = false;
 	}
 }
 
@@ -165,6 +195,8 @@ void cemuLog_createLogFile(bool triggeredByCrash)
 		return;
 
 	const auto path = cemuLog_GetLogFilePath();
+	LogContext.stream_buffer = std::make_unique<char[]>(LOG_STREAM_BUFFER_SIZE);
+	LogContext.file_stream.rdbuf()->pubsetbuf(LogContext.stream_buffer.get(), LOG_STREAM_BUFFER_SIZE);
 	LogContext.file_stream.open(path, std::ios::out);
 	if (LogContext.file_stream.fail())
 	{
@@ -180,6 +212,13 @@ void cemuLog_createLogFile(bool triggeredByCrash)
 void cemuLog_writeLineToLog(std::string_view text, bool date, bool new_line)
 {
 	std::unique_lock lock(LogContext.log_mutex);
+
+	if (LogContext.pending_bytes >= LOG_MAX_PENDING_BYTES)
+	{
+		LogContext.dropped_lines++;
+		return;
+	}
+	LogContext.pending_bytes += text.size();
 
 	if (date)
 	{
@@ -250,13 +289,22 @@ void cemuLog_waitForFlush()
 {
 	cemuLog_createLogFile(false);
 	std::unique_lock lock(LogContext.log_mutex);
-	while(!LogContext.text_cache.empty())
+	while (!LogContext.text_cache.empty() || LogContext.writing)
 	{
+		if (!LogContext.threadRunning.load())
+			return;
+		LogContext.flush_requested = true;
+		LogContext.flush_condition.notify_all();
 		lock.unlock();
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 		std::this_thread::yield();
 		lock.lock();
 	}
+}
+
+void cemuLog_shutdown()
+{
+	LogContext.Shutdown();
 }
 
 // used to atomically write multiple lines to the log

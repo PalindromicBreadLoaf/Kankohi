@@ -40,6 +40,7 @@ static void LogUncaughtException()
 	}
 	else
 		HorizonDiagnostics::Log("std::terminate called without an exception");
+	cemuLog_waitForFlush();
 	std::abort();
 }
 
@@ -121,6 +122,7 @@ static void Shutdown()
 
 int main(int argc, char* argv[])
 {
+	std::atexit(cemuLog_shutdown);
 	std::atexit(HorizonNetwork::Shutdown);
 	std::atexit(FileStream::FlushAllWrites);
 	std::atexit(FileCache::ShutdownAsyncWriter);

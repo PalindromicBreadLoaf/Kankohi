@@ -53,5 +53,5 @@
 [submodule "dependencies/switch/borealis"]
 	path = dependencies/switch/borealis
 	url = https://github.com/PalindromicBreadLoaf/borealis.git
-	branch = porpoise
+	branch = kankohi
 	shallow = true

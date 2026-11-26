@@ -70,7 +70,13 @@ foreach(_shader fill_vsh:vert fill_fsh:frag fill_aa_fsh:frag)
 	list(APPEND BOREALIS_ROMFS_FILES "${_out}")
 endforeach()
 
-foreach(_asset material/MaterialIcons-Regular.ttf img/sys/cursor.png i18n/en-US/hints.json)
+set(_romfs_assets material/MaterialIcons-Regular.ttf img/sys/cursor.png i18n/en-US/hints.json)
+foreach(_theme light dark)
+	foreach(_icon wifi_0 wifi_1 wifi_2 wifi_3 ethernet)
+		list(APPEND _romfs_assets "img/sys/${_icon}_${_theme}.png")
+	endforeach()
+endforeach()
+foreach(_asset ${_romfs_assets})
 	set(_out "${BOREALIS_ROMFS_DIR}/${_asset}")
 	add_custom_command(OUTPUT "${_out}"
 		COMMAND "${CMAKE_COMMAND}" -E copy "${CMAKE_CURRENT_SOURCE_DIR}/borealis/resources/${_asset}" "${_out}"

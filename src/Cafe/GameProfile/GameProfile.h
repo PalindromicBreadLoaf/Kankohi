@@ -13,8 +13,10 @@ class GameProfile
 
 public:
 	static const uint32 kThreadQuantumDefault = 45000;
+	static constexpr std::string_view kOverrideSection = "GameProfile/";
 
 	bool Load(uint64_t title_id);
+	void ApplyLaunchOverrides();
 	void Save(uint64_t title_id);
 	void ResetOptional();
 	void Reset();
@@ -70,6 +72,8 @@ private:
 	bool m_disableAudio = false;
 	// controller settings
 	std::array< std::optional<std::string>, 8> m_controllerProfile{};
+
+	void ParseOptions(class IniParser& iniParser);
 };
 extern std::unique_ptr<GameProfile> g_current_game_profile;
 

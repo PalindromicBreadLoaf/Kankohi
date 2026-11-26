@@ -1,6 +1,8 @@
 #include "config/CemuConfig.h"
 #include "util/helpers/helpers.h"
 #include "config/ActiveSettings.h"
+#include "config/LaunchSettings.h"
+#include "Cafe/GameProfile/GameProfile.h"
 #include "Cafe/Account/Account.h"
 
 void CemuConfig::SetMLCPath(fs::path path, bool save)
@@ -11,11 +13,39 @@ void CemuConfig::SetMLCPath(fs::path path, bool save)
 	Account::RefreshAccounts();
 }
 
+static void ApplySettingOverrides(tinyxml2::XMLElement* root)
+{
+	for (const auto& setting : LaunchSettings::GetSettingOverrides())
+	{
+		if (setting.section.starts_with(GameProfile::kOverrideSection))
+			continue;
+		tinyxml2::XMLElement* element = root;
+		for (const auto& name : Tokenize(fmt::format("{}/{}", setting.section, setting.key), '/'))
+		{
+			if (name.empty())
+				continue;
+			tinyxml2::XMLElement* child = element->FirstChildElement(name.c_str());
+			if (!child)
+			{
+				child = element->GetDocument()->NewElement(name.c_str());
+				element->InsertEndChild(child);
+			}
+			element = child;
+		}
+		const char* previous = element->GetText();
+		cemuLog_log(LogType::Force, "Overriding setting {}/{}: {} -> {}", setting.section, setting.key, previous ? previous : "(unset)", setting.value);
+		element->SetText(setting.value.c_str());
+	}
+}
+
 XMLConfigParser CemuConfig::Load(XMLConfigParser& parser)
 {
 	auto new_parser = parser.get("content");
 	if (new_parser.valid())
+	{
 		parser = new_parser;
+		ApplySettingOverrides(parser.GetCurrentElement());
+	}
 
 	// general settings
 	log_flag = parser.get("logflag", log_flag.GetInitValue());

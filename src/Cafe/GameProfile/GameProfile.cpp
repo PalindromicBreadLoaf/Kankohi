@@ -1,4 +1,5 @@
 #include "Cafe/GameProfile/GameProfile.h"
+#include "config/LaunchSettings.h"
 #include "util/helpers/helpers.h"
 
 #include "boost/nowide/convert.hpp"
@@ -170,6 +171,7 @@ void gameProfile_load()
 {
 	g_current_game_profile->ResetOptional(); // reset with global values as optional
 	g_current_game_profile->Load(CafeSystem::GetForegroundTitleId());
+	g_current_game_profile->ApplyLaunchOverrides();
 
 	// apply some settings immediately
 	ppcThreadQuantum = g_current_game_profile->GetThreadQuantum();
@@ -210,6 +212,29 @@ bool GameProfile::Load(uint64_t title_id)
 		trim(m_gameName.value());
 	}
 	IniParser iniParser(*profileContents, _pathToUtf8(gameProfilePath));
+	ParseOptions(iniParser);
+	return true;
+}
+
+void GameProfile::ApplyLaunchOverrides()
+{
+	std::string iniText;
+	for (const auto& setting : LaunchSettings::GetSettingOverrides())
+	{
+		if (!setting.section.starts_with(kOverrideSection))
+			continue;
+		const std::string_view section = std::string_view(setting.section).substr(kOverrideSection.size());
+		cemuLog_log(LogType::Force, "Overriding game profile option [{}] {} = {}", section, setting.key, setting.value);
+		iniText += fmt::format("[{}]\n{} = {}\n", section, setting.key, setting.value);
+	}
+	if (iniText.empty())
+		return;
+	IniParser iniParser(std::span<char>(iniText.data(), iniText.size()), "launch overrides");
+	ParseOptions(iniParser);
+}
+
+void GameProfile::ParseOptions(IniParser& iniParser)
+{
 	// parse ini
 	while (iniParser.NextSection())
 	{
@@ -276,7 +301,6 @@ bool GameProfile::Load(uint64_t title_id)
 
 		}
 	}
-	return true;
 }
 
 void GameProfile::Save(uint64_t title_id)

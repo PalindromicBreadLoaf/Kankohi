@@ -141,6 +141,18 @@ std::optional<int> LaunchSettings::HandleCommandline(const std::vector<std::wstr
 			if (auto value = nextValue())
 				ppcRec_limitUpperAddr = (uint32)StringHelpers::ToInt64(*value);
 		}
+		else if (arg == "--set")
+		{
+			if (auto value = nextValue())
+			{
+				const size_t equals = value->find('=');
+				const size_t slash = equals == std::string::npos ? equals : value->rfind('/', equals);
+				if (slash == std::string::npos || slash + 1 == equals)
+					cemuLog_log(LogType::Force, "--set expects Section/Key=Value instead of {}", *value);
+				else
+					s_setting_overrides.push_back({value->substr(0, slash), value->substr(slash + 1, equals - slash - 1), value->substr(equals + 1)});
+			}
+		}
 		else
 			cemuLog_log(LogType::Force, "Ignoring unknown command line option {}", arg);
 	}

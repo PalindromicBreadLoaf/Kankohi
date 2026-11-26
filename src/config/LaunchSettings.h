@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 class LaunchSettings
 {
@@ -39,6 +40,15 @@ public:
 
 	static std::optional<uint32> GetPersistentId() { return s_persistent_id; }
 
+	// Switch only
+	struct SettingOverride
+	{
+		std::string section;
+		std::string key;
+		std::string value;
+	};
+	static const std::vector<SettingOverride>& GetSettingOverrides() { return s_setting_overrides; }
+
 	static uint32 GetPPCRecLowerAddr() { return ppcRec_limitLowerAddr; };
 	static uint32 GetPPCRecUpperAddr() { return ppcRec_limitUpperAddr; };
 
@@ -64,6 +74,8 @@ private:
 	inline static bool s_force_multicore_interpreter = false;
 	
 	inline static std::optional<uint32> s_persistent_id{};
+
+	inline static std::vector<SettingOverride> s_setting_overrides{};
 
 	// for recompiler debugging
 	inline static uint32 ppcRec_limitLowerAddr{};

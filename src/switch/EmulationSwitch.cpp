@@ -16,6 +16,7 @@
 #include "audio/AudrenAPI.h"
 #include "config/ActiveSettings.h"
 #include "config/CemuConfig.h"
+#include "config/LaunchSettings.h"
 #include "config/NetworkSettings.h"
 #include "gui/interface/WindowSystem.h"
 #include "input/InputManager.h"
@@ -225,7 +226,8 @@ namespace EmulationSwitch
 			const fs::path gamesPath = userPath / "games";
 			CreateDirectoriesIfMissing(gamesPath);
 			GetConfig().game_paths.emplace_back(_pathToUtf8(gamesPath));
-			GetConfigHandle().Save();
+			if (isFirstStart || LaunchSettings::GetSettingOverrides().empty())
+				GetConfigHandle().Save();
 		}
 
 		const fs::path mlcPath = ActiveSettings::GetMlcPath();
@@ -259,7 +261,8 @@ namespace EmulationSwitch
 		CafeSystem::Shutdown();
 		PPCRecompiler_Shutdown();
 		AudrenAPI::Destroy();
-		GetConfigHandle().Save();
+		if (LaunchSettings::GetSettingOverrides().empty())
+			GetConfigHandle().Save();
 		s_initialised = false;
 	}
 

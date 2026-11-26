@@ -7,6 +7,7 @@
 #include "audio/IAudioAPI.h"
 #include "config/ActiveSettings.h"
 #include "config/CemuConfig.h"
+#include "config/LaunchSettings.h"
 #include "switch/EmulationSwitch.h"
 
 #include <initializer_list>
@@ -197,7 +198,8 @@ namespace ShellConfig
 
 	void Save()
 	{
-		GetConfigHandle().Save();
+		if (LaunchSettings::GetSettingOverrides().empty())
+			GetConfigHandle().Save();
 	}
 
 	void ApplyRunning()

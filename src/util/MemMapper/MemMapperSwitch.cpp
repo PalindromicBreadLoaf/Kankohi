@@ -2,10 +2,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "util/MemMapper/MemMapper.h"
+#include "Common/switch/HorizonDiagnostics.h"
 #include "Common/switch/HorizonMemory.h"
 
 namespace MemMapper
 {
+	static constexpr size_t MAX_SEGMENT_SIZE = 0x2000000;
+
 	struct Commit
 	{
 		HorizonMemory::Segment segment;
@@ -49,7 +52,8 @@ namespace MemMapper
 		uint32 result = HorizonMemory::CreateSegment(commit.segment, size);
 		if (result != 0)
 		{
-			cemuLog_log(LogType::Force, "MemMapper: Creating a 0x{:x} byte segment failed with 0x{:x}", size, result);
+			cemuLog_log(LogType::Force, "MemMapper: Creating a 0x{:x} byte segment failed with 0x{:x}, {} MiB free, largest block {} MiB", size, result,
+				HorizonDiagnostics::GetFreeHeap() >> 20, HorizonDiagnostics::GetLargestFreeBlock() >> 20);
 			return false;
 		}
 		result = HorizonMemory::MapAlias((void*)address, commit.segment.canonical, size);
@@ -136,6 +140,7 @@ namespace MemMapper
 			return nullptr;
 		}
 
+		std::vector<uintptr_t> created;
 		uintptr_t cursor = start;
 		auto it = reservation->commits.upper_bound(start);
 		if (it != reservation->commits.begin())
@@ -146,8 +151,22 @@ namespace MemMapper
 		while (cursor < end)
 		{
 			const uintptr_t gapEnd = (it != reservation->commits.end()) ? std::min(end, it->first) : end;
-			if (cursor < gapEnd && !CreateCommit(*reservation, cursor, gapEnd - cursor))
-				return nullptr;
+			while (cursor < gapEnd)
+			{
+				const size_t segmentSize = std::min<size_t>(gapEnd - cursor, MAX_SEGMENT_SIZE);
+				if (!CreateCommit(*reservation, cursor, segmentSize))
+				{
+					for (uintptr_t address : created)
+					{
+						auto commit = reservation->commits.find(address);
+						ReleaseCommit(address, commit->second);
+						reservation->commits.erase(commit);
+					}
+					return nullptr;
+				}
+				created.emplace_back(cursor);
+				cursor += segmentSize;
+			}
 			if (it == reservation->commits.end() || it->first >= end)
 				break;
 			cursor = it->first + it->second.size;

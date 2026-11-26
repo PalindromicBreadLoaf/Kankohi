@@ -36,7 +36,8 @@ namespace HorizonMemory
 	uint32_t CreateSegment(Segment& segment, size_t size)
 	{
 		const Handle self = envGetOwnProcessHandle();
-		void* backing = std::aligned_alloc(HORIZON_LARGE_PAGE_SIZE, size);
+		const size_t alignment = size < HORIZON_LARGE_PAGE_SIZE ? HORIZON_PAGE_SIZE : HORIZON_LARGE_PAGE_SIZE;
+		void* backing = std::aligned_alloc(alignment, size);
 		if (!backing)
 			return MAKERESULT(Module_Libnx, LibnxError_OutOfMemory);
 

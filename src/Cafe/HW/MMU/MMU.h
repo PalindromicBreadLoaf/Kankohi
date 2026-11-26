@@ -1,7 +1,7 @@
 #pragma once
 
 void memory_init();
-void memory_mapForCurrentTitle();
+bool memory_mapForCurrentTitle();
 void memory_unmapForCurrentTitle();
 void memory_logModifiedMemoryRanges();
 
@@ -52,7 +52,7 @@ struct MMURange
 
 	MMURange(const uint32 baseAddress, const uint32 size, MMU_MEM_AREA_ID areaId, const std::string_view name, MFLAG flags = (MFLAG)0);
 
-	void mapMem();
+	bool mapMem();
 	void unmapMem();
 
 	uint8* getPtr() const

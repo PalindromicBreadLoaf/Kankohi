@@ -859,7 +859,12 @@ namespace CafeSystem
 			return r;
 		gameProfile_load();
 		// setup memory space and PPC recompiler
-        SetupMemorySpace();
+        if (!SetupMemorySpace())
+        {
+            UnmountForegroundTitle();
+            UnmountBaseDirectories();
+            return PREPARE_STATUS_CODE::OUT_OF_MEMORY;
+        }
         PPCRecompiler_init();
 		r = PrepareExecutable(); // load RPX
 		if (r != PREPARE_STATUS_CODE::SUCCESS)
@@ -904,7 +909,12 @@ namespace CafeSystem
 		sForegroundTitleId = 0xFFFFFFFF00000000ULL | (uint64)h;
 		cemuLog_log(LogType::Force, "Generated placeholder TitleId: {:016x}", sForegroundTitleId);
 		// setup memory space and ppc recompiler
-        SetupMemorySpace();
+        if (!SetupMemorySpace())
+        {
+            fsc_unmount("/vol/content", FSC_PRIORITY_BASE);
+            fsc_unmount("/internal/code/", FSC_PRIORITY_BASE);
+            return PREPARE_STATUS_CODE::OUT_OF_MEMORY;
+        }
         PPCRecompiler_init();
         // load executable
         PrepareExecutable();

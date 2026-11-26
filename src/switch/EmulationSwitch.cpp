@@ -275,6 +275,8 @@ namespace EmulationSwitch
 			const CafeSystem::PREPARE_STATUS_CODE r = CafeSystem::PrepareForegroundTitle(baseTitleId);
 			if (r == CafeSystem::PREPARE_STATUS_CODE::UNABLE_TO_MOUNT)
 				return fmt::format("Unable to mount the title at {}.", _pathToUtf8(path));
+			if (r == CafeSystem::PREPARE_STATUS_CODE::OUT_OF_MEMORY)
+				return "There is not enough free memory to launch the game.";
 			if (r != CafeSystem::PREPARE_STATUS_CODE::SUCCESS)
 				return fmt::format("Failed to launch {}.", _pathToUtf8(path));
 		}

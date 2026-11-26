@@ -41,7 +41,7 @@ void memory_initPhysicalLayout()
 
 	//// kernel memory
 	//// currently it is unknown if this is it's own physical memory region or if this is mapped somehow
-	//// considering the ancast is never copied here and no memory mapping is setup it seems like a hardwired mirror to 0x08000000? 
+	//// considering the ancast is never copied here and no memory mapping is setup it seems like a hardwired mirror to 0x08000000?
 	////checkMemAlloc(VirtualAlloc(memory_base + 0xFFE00000, 0x180000, MEM_COMMIT, PAGE_READWRITE));
 	//HANDLE hKernelMem = CreateFileMappingA(
 	//	INVALID_HANDLE_VALUE,    // use paging file
@@ -86,20 +86,26 @@ MMURange::MMURange(const uint32 baseAddress, const uint32 size, MMU_MEM_AREA_ID 
 	g_mmuRanges.emplace_back(this);
 }
 
-void MMURange::mapMem()
+[[noreturn]] static void ExitOutOfMemory()
+{
+	#if BOOST_OS_WINDOWS
+	ExitProcess(-1);
+	#else
+	exit(-1);
+	#endif
+}
+
+bool MMURange::mapMem()
 {
 	cemu_assert_debug(!m_isMapped);
 	if (MemMapper::AllocateMemory(memory_base + baseAddress, size, MemMapper::PAGE_PERMISSION::P_RW, true) == nullptr)
 	{
 		std::string errorMsg = _tr("Unable to allocate {} memory", name);
 		WindowSystem::ShowErrorDialog(errorMsg, _tr("Error"));
-		#if BOOST_OS_WINDOWS
-		ExitProcess(-1);
-		#else
-		exit(-1);
-		#endif
+		return false;
 	}
 	m_isMapped = true;
+	return true;
 }
 
 void MMURange::unmapMem()
@@ -140,12 +146,12 @@ void memory_init()
 	}
 	for (auto& itr : g_mmuRanges)
 	{
-		if (itr->isMappedEarly() && !itr->isMapped())
-			itr->mapMem();
+		if (itr->isMappedEarly() && !itr->isMapped() && !itr->mapMem())
+			ExitOutOfMemory();
 	}
 }
 
-void memory_mapForCurrentTitle()
+bool memory_mapForCurrentTitle()
 {
 	for (auto& itr : g_mmuRanges)
 		if(!itr->isMapped())
@@ -193,9 +199,13 @@ void memory_mapForCurrentTitle()
 
 	for (auto& itr : g_mmuRanges)
 	{
-		if (!itr->isOptional() && !itr->isMappedEarly())
-			itr->mapMem();
+		if (!itr->isOptional() && !itr->isMappedEarly() && !itr->mapMem())
+		{
+			memory_unmapForCurrentTitle();
+			return false;
+		}
 	}
+	return true;
 }
 
 void memory_unmapForCurrentTitle()
@@ -238,7 +248,8 @@ void memory_enableOverlayArena()
 {
 	if (mmuRange_OVERLAY_AREA.isMapped())
 		return;
-	mmuRange_OVERLAY_AREA.mapMem();
+	if (!mmuRange_OVERLAY_AREA.mapMem())
+		ExitOutOfMemory();
 }
 
 void memory_enableHBLELFCodeArea()
@@ -293,12 +304,12 @@ uint32 memory_getVirtualOffsetFromPointer(void* ptr)
 }
 
 uint8* memory_getPointerFromVirtualOffset(uint32 virtualOffset)
-{	
+{
 	return memory_base + virtualOffset;
 }
 
 uint8* memory_getPointerFromVirtualOffsetAllowNull(uint32 virtualOffset)
-{	
+{
 	if( virtualOffset == MPTR_NULL )
 		return nullptr;
 	return memory_getPointerFromVirtualOffset(virtualOffset);

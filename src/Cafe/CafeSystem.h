@@ -20,6 +20,7 @@ namespace CafeSystem
 		SUCCESS,
 		INVALID_RPX,
 		UNABLE_TO_MOUNT, // failed to mount through TitleInfo (most likely caused by an invalid or outdated path)
+		OUT_OF_MEMORY, // failed to allocate the emulated memory
 	};
 
 	void Initialize();

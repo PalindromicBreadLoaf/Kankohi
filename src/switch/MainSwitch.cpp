@@ -130,6 +130,7 @@ int main(int argc, char* argv[])
 		return *exitCode;
 
 	HorizonApplet::Init();
+	SetThreadName("Frontend");
 	SetHostThreadRole(HostThreadRole::Frontend);
 	if (!HorizonApplet::IsApplication())
 		HorizonDiagnostics::Log("Not running as an application!!");

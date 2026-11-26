@@ -62,6 +62,7 @@ namespace
 		size_t stackSize;
 		uintptr_t start;
 		std::array<uintptr_t, 2> argWords;
+		char name[sizeof(HorizonDiagnostics::ThreadInfo::name)];
 	};
 
 	RMutex s_logMutex;
@@ -147,7 +148,7 @@ namespace
 		{
 			std::lock_guard lock(s_liveMutex);
 			s_liveThreads.push_back({pthread_self(), self->handle, (uintptr_t)self->stack_mem, self->stack_sz,
-									 (uintptr_t)threadStart.start, threadStart.argWords});
+									 (uintptr_t)threadStart.start, threadStart.argWords, {}});
 		}
 		return threadStart.start(threadStart.arg);
 	}

@@ -3,6 +3,10 @@
 
 #include "HorizonDiagnostics.h"
 #include "HorizonException.h"
+extern "C"
+{
+#include "HorizonLargeHeap.h"
+}
 
 #include <algorithm>
 #include <array>
@@ -25,6 +29,9 @@
 extern "C" void _start();
 extern "C" char* fake_heap_start;
 extern "C" char* fake_heap_end;
+extern "C" size_t HorizonMalloc_GetLargestFree();
+extern "C" size_t HorizonMalloc_GetSmallHeapSize();
+extern "C" size_t HorizonMalloc_GetLargeBlocks(LargeHeapBlock* blocks, size_t capacity);
 
 extern "C" int __real_pthread_create(pthread_t* thread, const pthread_attr_t* attr, void* (*start)(void*), void* arg);
 extern "C" int __real_pthread_join(pthread_t thread, void** value);
@@ -35,6 +42,7 @@ namespace
 	constexpr size_t BUILD_ID_SIZE = 20;
 	constexpr size_t MIN_THREAD_STACK = 256 * 1024;
 	constexpr uint64_t SYSTEM_CORE_MASK = 1u << 3;
+	constexpr size_t MAX_LISTED_BLOCKS = 64;
 
 	int s_logFd = -1;
 	char s_buildId[BUILD_ID_SIZE * 2 + 1];
@@ -269,6 +277,11 @@ namespace HorizonDiagnostics
 		return (size_t)(fake_heap_end - fake_heap_start) - info.arena + info.fordblks;
 	}
 
+	size_t GetLargestFreeBlock()
+	{
+		return HorizonMalloc_GetLargestFree();
+	}
+
 	size_t AuditHeap(const char* when)
 	{
 		size_t count = 0;
@@ -279,7 +292,23 @@ namespace HorizonDiagnostics
 				info.size, info.type, info.perm, info.attr);
 			count++;
 		});
-		Log("heap audit (%s): %zu non-plain ranges since start, %zu MiB free", when, count, GetFreeHeap() >> 20);
+		const uintptr_t base = GetModuleBase();
+		LargeHeapBlock blocks[MAX_LISTED_BLOCKS];
+		const size_t blockCount = HorizonMalloc_GetLargeBlocks(blocks, MAX_LISTED_BLOCKS);
+		for (size_t i = 0; i < std::min(blockCount, MAX_LISTED_BLOCKS); i++)
+		{
+			char callers[LARGE_HEAP_CALLERS * 20 + 1] = "";
+			int length = 0;
+			for (uintptr_t caller : blocks[i].callers)
+			{
+				if (caller != 0)
+					length += std::snprintf(callers + length, sizeof(callers) - length, " +%#lx", caller - base);
+			}
+			Log("heap audit (%s): large block +%#lx size %#zx, callers%s", when, blocks[i].start - (uintptr_t)fake_heap_start, blocks[i].size, callers);
+		}
+		Log("heap audit (%s): %zu large blocks in use", when, blockCount);
+		Log("heap audit (%s): %zu non-plain ranges since start, %zu MiB free, largest block %zu MiB, small blocks span %zu MiB", when, count,
+			GetFreeHeap() >> 20, GetLargestFreeBlock() >> 20, HorizonMalloc_GetSmallHeapSize() >> 20);
 		return count;
 	}
 

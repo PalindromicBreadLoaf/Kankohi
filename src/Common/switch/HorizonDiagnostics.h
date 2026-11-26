@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace HorizonDiagnostics
 {
@@ -20,6 +21,7 @@ namespace HorizonDiagnostics
 	bool CreateDirectories(const char* path);
 
 	size_t GetFreeHeap();
+	size_t GetLargestFreeBlock();
 
 	// Logs every mapped range in the heap region that isn't plain RW heap and returns how many
 	// there were.

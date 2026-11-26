@@ -186,7 +186,10 @@ uint32 LatteCP_readU32Deprc()
 		LatteThread_HandleRedrawRequest();
 
 		if ( TCL::TCLGPUReadRBWord(cmdWord) )
+		{
+			performanceMonitor.gpuTime_idleTime.endMeasuring();
 			return cmdWord;
+		}
 		if (Latte_GetStopSignal())
 			LatteThread_Exit();
 

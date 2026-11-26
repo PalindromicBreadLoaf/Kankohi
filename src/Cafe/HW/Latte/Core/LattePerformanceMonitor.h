@@ -18,6 +18,7 @@ public:
 	{
 		uint64 dif = PPCTimer_getRawTsc() - timerStart;
 		currentSum += dif;
+		total.store(total.load(std::memory_order_relaxed) + dif, std::memory_order_relaxed);
 	}
 
 	void frameFinished()
@@ -31,10 +32,16 @@ public:
 		return previousFrame;
 	}
 
+	uint64 getTotal() const
+	{
+		return total.load(std::memory_order_relaxed);
+	}
+
 private:
 	uint64 currentSum{};
 	uint64 previousFrame{};
 	uint64 timerStart{};
+	std::atomic_uint64_t total{};
 };
 
 class LattePerfStatCounter
@@ -107,7 +114,12 @@ typedef struct
 	LattePerfStatTimer gpuTime_dcStageMRT; // drawcall render target API
 
 	LattePerfStatTimer gpuTime_dcStageDrawcallAPI; // drawcall api call
+	LattePerfStatTimer gpuTime_waitForHostGPU; // waiting for submitted command buffers to finish
+	LattePerfStatTimer gpuTime_present; // acquiring and presenting swapchain images
 	LattePerfStatTimer gpuTime_waitForAsync; // waiting for operations to complete (e.g. GX2DrawDone or force texture readback) Also includes texture readback and occlusion query polling logic
+
+	bool measureHostGPUTime;
+	std::atomic_uint64_t hostGPUBusyNs; // total time the host GPU spent on command buffers
 
 	// generic
 	uint32 numCompiledVS; // number of compiled vertex shader programs
@@ -115,7 +127,7 @@ typedef struct
 	uint32 numCompiledPS; // number of compiled pixel shader programs
 
 	// Vulkan
-	struct  
+	struct
 	{
 		LattePerfStatCounter numDescriptorSets;
 		LattePerfStatCounter numDescriptorDynUniformBuffers;
@@ -144,6 +156,8 @@ extern performanceMonitor_t performanceMonitor;
 
 void LattePerformanceMonitor_frameEnd();
 void LattePerformanceMonitor_frameBegin();
+
+void LattePerformanceMonitor_setFrameCallback(void (*callback)());
 
 #define beginPerfMonProfiling(__obj) if( THasProfiling ) __obj.beginMeasuring()
 #define endPerfMonProfiling(__obj) if( THasProfiling ) __obj.endMeasuring()

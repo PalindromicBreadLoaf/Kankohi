@@ -4,6 +4,13 @@
 
 performanceMonitor_t performanceMonitor{};
 
+static std::atomic<void (*)()> s_frameCallback{};
+
+void LattePerformanceMonitor_setFrameCallback(void (*callback)())
+{
+	s_frameCallback.store(callback);
+}
+
 void LattePerformanceMonitor_frameEnd()
 {
 	// per-frame stats
@@ -19,6 +26,11 @@ void LattePerformanceMonitor_frameEnd()
 	performanceMonitor.gpuTime_dcStageMRT.frameFinished();
 	performanceMonitor.gpuTime_dcStageDrawcallAPI.frameFinished();
 	performanceMonitor.gpuTime_waitForAsync.frameFinished();
+	performanceMonitor.gpuTime_waitForHostGPU.frameFinished();
+	performanceMonitor.gpuTime_present.frameFinished();
+
+	if (auto callback = s_frameCallback.load())
+		callback();
 
 	uint32 elapsedTime = GetTickCount() - performanceMonitor.cycle[performanceMonitor.cycleIndex].lastUpdate;
 	if (elapsedTime >= 1000)

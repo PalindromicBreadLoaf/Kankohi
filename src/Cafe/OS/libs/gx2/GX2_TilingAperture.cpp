@@ -4,6 +4,7 @@
 #include "GX2_Surface.h"
 #include "Cafe/HW/Latte/LatteAddrLib/LatteAddrLib.h"
 #include "Cafe/HW/Latte/Core/LatteTextureLoader.h"
+#include "util/ThreadPool/ThreadPool.h"
 
 void LatteTextureLoader_begin(LatteTextureLoaderCtx* textureLoader, uint32 sliceIndex, uint32 mipIndex, MPTR physImagePtr, MPTR physMipPtr, Latte::E_GX2SURFFMT format, Latte::E_DIM dim, uint32 width, uint32 height, uint32 depth, uint32 mipLevels, uint32 pitch, Latte::E_HWTILEMODE tileMode, uint32 swizzle);
 
@@ -397,7 +398,7 @@ namespace GX2
 			StackAllocator<coreinit::OSEvent> event;
 			coreinit::OSInitEvent(&event, coreinit::OSEvent::EVENT_STATE::STATE_NOT_SIGNALED, coreinit::OSEvent::EVENT_MODE::MODE_AUTO);
 			++s_numActiveTilingThreads;
-			std::future<void> res = std::async(std::launch::async, [](TilingAperture* tilingAperture, bool doWrite, coreinit::OSEvent* event) {
+			ThreadPool::FireAndForget([](TilingAperture* tilingAperture, bool doWrite, coreinit::OSEvent* event) {
 				GX2TilingAperture_RetileTextureAsync(tilingAperture, doWrite);
 				coreinit::OSSignalEvent(event);
 				--s_numActiveTilingThreads;

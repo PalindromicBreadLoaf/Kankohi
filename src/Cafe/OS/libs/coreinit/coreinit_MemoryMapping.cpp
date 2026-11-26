@@ -151,6 +151,12 @@ namespace coreinit
 		return 1;
 	}
 
+	void ResetMemoryMapping()
+	{
+		MemMapper::FreeMemory(memory_getPointerFromVirtualOffset(VIRT_RANGE_ADDR), VIRT_RANGE_SIZE, true);
+		s_allocatedVirtMemory.clear();
+	}
+
 	void InitializeMemoryMapping()
 	{
 		s_allocatedVirtMemory.clear();

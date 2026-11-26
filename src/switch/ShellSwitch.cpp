@@ -20,6 +20,7 @@ namespace Shell
 		constexpr const char* LOG_PATH = "sdmc:/switch/kankohi/logs/borealis.log";
 
 		uint64_t s_lastChosen = 0;
+		bool s_logCreated = false;
 
 		class Services
 		{
@@ -51,10 +52,11 @@ namespace Shell
 		class LogFile
 		{
 		public:
-			LogFile() : m_file(std::fopen(LOG_PATH, "w"))
+			LogFile() : m_file(std::fopen(LOG_PATH, s_logCreated ? "a" : "w"))
 			{
 				if (!m_file)
 					return;
+				s_logCreated = true;
 				std::setvbuf(m_file, nullptr, _IOLBF, 0);
 				brls::Logger::setLogOutput(m_file);
 			}

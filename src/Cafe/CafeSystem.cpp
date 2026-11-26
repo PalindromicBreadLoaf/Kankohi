@@ -832,10 +832,12 @@ namespace CafeSystem
 		return PREPARE_STATUS_CODE::SUCCESS;
 	}
 
-    void SetupMemorySpace()
+    bool SetupMemorySpace()
     {
-        memory_mapForCurrentTitle();
+        if (!memory_mapForCurrentTitle())
+            return false;
         LoadSharedData();
+        return true;
     }
 
     void DestroyMemorySpace()
@@ -1127,6 +1129,7 @@ namespace CafeSystem
 		MlcStorageUnmountAllTitles();
 		UnmountBaseDirectories();
 		DestroyMemorySpace();
+		coreinit::ResetMemoryMapping();
 		LaunchSettings::ClearCosArgstr();
 		sSystemRunning = false;
 	}

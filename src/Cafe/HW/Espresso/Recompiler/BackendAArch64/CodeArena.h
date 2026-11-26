@@ -21,6 +21,7 @@ class CodeArena
 
 	size_t GetSize() const { return m_region.size; }
 	size_t GetUsedSize() const { return m_usedSize; }
+	const uint8_t* GetExecutable() const { return m_region.executable; }
 
   private:
 	std::mutex m_mutex;

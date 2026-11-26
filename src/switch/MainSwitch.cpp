@@ -13,7 +13,9 @@
 #include "gui/interface/WindowSystem.h"
 #include "input/InputManager.h"
 #include "switch/EmulationSwitch.h"
+#include "switch/InputReplaySwitch.h"
 #include "switch/PauseMenuSwitch.h"
+#include "switch/PerfMonitorSwitch.h"
 #include "switch/ShellSwitch.h"
 #include "util/ThreadPool/ThreadPool.h"
 #include "util/helpers/helpers.h"
@@ -65,7 +67,7 @@ static void RunTitle(const std::string& exitLabel)
 	PauseMenu pauseMenu(CafeSystem::GetForegroundTitleName(), exitLabel);
 	const uint64 flipsAtLaunch = LatteGPUState.flipRequestCount.load();
 	bool boosting = true;
-	while (HorizonApplet::Update() && !EmulationSwitch::HasTitleExited() && !pauseMenu.IsExitRequested())
+	while (HorizonApplet::Update() && !EmulationSwitch::HasTitleExited() && !pauseMenu.IsExitRequested() && !PerfMonitor::IsBenchmarkFinished())
 	{
 		WindowSystem::GetWindowInfo().app_active = HorizonApplet::IsInFocus();
 		EmulationSwitch::Update();
@@ -75,11 +77,14 @@ static void RunTitle(const std::string& exitLabel)
 			boosting = false;
 		}
 		pauseMenu.Update(!boosting);
+		PerfMonitor::Update();
 		FileStream::FlushStaleWrites();
 		std::this_thread::sleep_for(FRONTEND_POLL_INTERVAL);
 	}
 	if (boosting)
 		HorizonApplet::EndBoost();
+	PerfMonitor::Stop();
+	InputReplay::Stop();
 	EmulationSwitch::StopTitle();
 	HorizonDiagnostics::AuditThreads("title stopped");
 	HorizonDiagnostics::AuditHeap("title stopped");
@@ -88,9 +93,13 @@ static void RunTitle(const std::string& exitLabel)
 static std::string LaunchAndRun(const fs::path& path, const std::string& exitLabel)
 {
 	HorizonApplet::BeginBoost();
+	PerfMonitor::Start();
+	InputReplay::Start();
 	std::string error = EmulationSwitch::LaunchTitle(path);
 	if (!error.empty())
 	{
+		PerfMonitor::Stop();
+		InputReplay::Stop();
 		WindowSystem::ShowErrorDialog(error, "Launch failed");
 		HorizonApplet::EndBoost();
 		return error;

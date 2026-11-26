@@ -8,6 +8,7 @@
 #include "Common/switch/HorizonInput.h"
 #include "Common/switch/HorizonTheme.h"
 #include "input/api/Switch/SwitchController.h"
+#include "switch/PerfMonitorSwitch.h"
 #include "imgui/imgui_extension.h"
 
 #include <imgui.h>
@@ -34,6 +35,8 @@ namespace
 	constexpr auto REPEAT_INTERVAL = std::chrono::milliseconds(75);
 	// Covers display changes and late font loads while nothing else asks for a frame
 	constexpr auto KEEP_ALIVE_INTERVAL = std::chrono::milliseconds(250);
+
+	constexpr double PROFILE_SECONDS = 10.0;
 
 	constexpr int MAX_VISIBLE_ROWS = 10;
 
@@ -251,6 +254,8 @@ void PauseMenu::FinishClose()
 		return;
 	CafeSystem::ResumeTitle();
 	cemuLog_log(LogType::Force, "Resumed");
+	if (std::exchange(m_profileRequested, false))
+		PerfMonitor::StartProfile(PROFILE_SECONDS);
 }
 
 void PauseMenu::HandleInput(uint64_t buttons, uint64_t pressed)
@@ -431,6 +436,15 @@ std::vector<PauseMenu::Row> PauseMenu::BuildMain()
 	screen.change = [](int) { LatteGPUState.isDRCPrimary = !LatteGPUState.isDRCPrimary; };
 	rows.push_back(std::move(screen));
 	rows.push_back({RowKind::Submenu, "Settings", {}, true, [this] { Push(PageId::Settings); }});
+	if (PerfMonitor::IsProfiling())
+		rows.push_back({RowKind::Action, "Profile capture in progress", {}, false});
+	else
+	{
+		rows.push_back({RowKind::Action, fmt::format("Capture profile ({:.0f} s)", PROFILE_SECONDS), {}, true, [this] {
+			m_profileRequested = true;
+			Close(false);
+		}});
+	}
 	rows.push_back({RowKind::Action, m_exitLabel, {}, true, [this] { Push(PageId::ConfirmExit); }});
 	return rows;
 }

@@ -111,6 +111,7 @@ private:
 	State m_state = State::Closed;
 	bool m_exitRequested = false;
 	bool m_configDirty = false;
+	bool m_profileRequested = false;
 	bool m_darkTheme = true;
 
 	uint64_t m_previousButtons = 0;

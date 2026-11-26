@@ -33,6 +33,7 @@ namespace HorizonInput
 
 	bool IsConnected(int player);
 	void Poll(int player, PadSnapshot& snapshot);
+	void SetSnapshotFilter(void (*filter)(int player, PadSnapshot& snapshot));
 	void SetRumble(int player, float amplitude);
 	void StopAllRumble();
 	uint64_t GetHeldButtons();

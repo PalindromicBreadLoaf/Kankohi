@@ -46,6 +46,7 @@ namespace
 
 	std::array<Slot, HorizonInput::MAX_PLAYERS> s_slots;
 	bool s_initialised = false;
+	std::atomic<void (*)(int player, HorizonInput::PadSnapshot& snapshot)> s_snapshotFilter = nullptr;
 
 	bool SupportsTwoVibrationDevices(HidNpadStyleTag style)
 	{
@@ -222,13 +223,8 @@ namespace HorizonInput
 		return player == 0 && hidGetNpadStyleSet(HidNpadIdType_Handheld) != 0;
 	}
 
-	void Poll(int player, PadSnapshot& snapshot)
+	static void PollSlot(int player, PadSnapshot& snapshot)
 	{
-		if (!s_initialised || player < 0 || player >= MAX_PLAYERS)
-		{
-			snapshot = {};
-			return;
-		}
 		Slot& slot = s_slots[player];
 		std::scoped_lock lock(slot.mutex);
 		padUpdate(&slot.pad);
@@ -258,6 +254,23 @@ namespace HorizonInput
 		const float rumble = slot.rumble.load(std::memory_order_relaxed);
 		if (rumble != slot.sentRumble)
 			SendRumble(slot, rumble);
+	}
+
+	void Poll(int player, PadSnapshot& snapshot)
+	{
+		if (!s_initialised || player < 0 || player >= MAX_PLAYERS)
+		{
+			snapshot = {};
+			return;
+		}
+		PollSlot(player, snapshot);
+		if (auto filter = s_snapshotFilter.load(std::memory_order_acquire))
+			filter(player, snapshot);
+	}
+
+	void SetSnapshotFilter(void (*filter)(int player, PadSnapshot& snapshot))
+	{
+		s_snapshotFilter.store(filter, std::memory_order_release);
 	}
 
 	void SetRumble(int player, float amplitude)

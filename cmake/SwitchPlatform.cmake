@@ -29,6 +29,7 @@ _switch_force(ENABLE_VULKAN ON)
 
 option(ENABLE_NXVK "Enable the Vulkan backend via NXVK" ON)
 option(ENABLE_DEKO3D "Enable the deko3d renderer" ON)
+option(ENABLE_FRAME_POINTERS "Keep frame pointers" OFF)
 if(ENABLE_VULKAN AND NOT ENABLE_NXVK)
 	message(FATAL_ERROR "NXVK is required for Vulkan support.")
 endif()
@@ -43,6 +44,11 @@ endif()
 set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 
 add_compile_definitions(_GNU_SOURCE)
+
+if(ENABLE_FRAME_POINTERS)
+	add_compile_options(-fno-omit-frame-pointer -mno-omit-leaf-frame-pointer)
+	add_compile_definitions(KANKOHI_FRAME_POINTERS)
+endif()
 
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)

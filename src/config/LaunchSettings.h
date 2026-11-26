@@ -41,13 +41,22 @@ public:
 	static std::optional<uint32> GetPersistentId() { return s_persistent_id; }
 
 	// Switch only
+	struct Benchmark
+	{
+		double seconds = 60.0;
+		double warmupSeconds = 15.0;
+		std::string label;
+	};
 	struct SettingOverride
 	{
 		std::string section;
 		std::string key;
 		std::string value;
 	};
+	static const std::optional<Benchmark>& GetBenchmark() { return s_benchmark; }
 	static const std::vector<SettingOverride>& GetSettingOverrides() { return s_setting_overrides; }
+	static std::optional<std::string> GetRecordInputPath() { return s_record_input_path; }
+	static std::optional<std::string> GetReplayInputPath() { return s_replay_input_path; }
 
 	static uint32 GetPPCRecLowerAddr() { return ppcRec_limitLowerAddr; };
 	static uint32 GetPPCRecUpperAddr() { return ppcRec_limitUpperAddr; };
@@ -72,10 +81,13 @@ private:
 
 	inline static bool s_force_interpreter = false;
 	inline static bool s_force_multicore_interpreter = false;
-	
+
 	inline static std::optional<uint32> s_persistent_id{};
 
+	inline static std::optional<Benchmark> s_benchmark{};
 	inline static std::vector<SettingOverride> s_setting_overrides{};
+	inline static std::optional<std::string> s_record_input_path{};
+	inline static std::optional<std::string> s_replay_input_path{};
 
 	// for recompiler debugging
 	inline static uint32 ppcRec_limitLowerAddr{};

@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace HorizonApplet
 {
 	// Locks exit, disables auto-sleep, mounts romfs
@@ -16,6 +18,8 @@ namespace HorizonApplet
 	bool IsInFocus();
 	bool IsRomfsMounted();
 	bool IsDocked();
+	// How often the system has resumed us after a suspension
+	uint32_t GetResumeCount();
 
 	void GetDisplaySize(int& width, int& height);
 	bool ResizeWindow(int width, int height);

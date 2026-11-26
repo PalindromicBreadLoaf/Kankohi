@@ -1827,6 +1827,12 @@ bool PPCRecompilerAArch64Gen_generateRecompilerInterfaceFunctions()
 	return true;
 }
 
+std::pair<uintptr_t, uintptr_t> PPCRecompilerAArch64Gen_getCodeRange()
+{
+	const uintptr_t start = (uintptr_t)s_codeArena.GetExecutable();
+	return {start, start + s_codeArena.GetSize()};
+}
+
 void PPCRecompilerAArch64Gen_shutdown()
 {
 	if (s_codeArena.GetSize() == 0)

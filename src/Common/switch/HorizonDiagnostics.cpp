@@ -320,15 +320,108 @@ namespace HorizonDiagnostics
 		size_t count = 0;
 		for (const LiveThread& t : s_liveThreads)
 		{
-			if (!IsStackBorrowed(t.stackMem))
+			if (t.stackMem == 0 || !IsStackBorrowed(t.stackMem))
 				continue;
 			const bool exited = R_SUCCEEDED(svcWaitSynchronizationSingle(t.handle, 0));
-			Log("thread audit (%s): unjoined %s, stack %#lx size %#lx, start +%#lx, arg words %#lx %#lx", when,
-				exited ? "exited" : "running", t.stackMem, t.stackSize, t.start - base, t.argWords[0], t.argWords[1]);
+			Log("thread audit (%s): unjoined %s %s, stack %#lx size %#lx, start +%#lx, arg words %#lx %#lx", when,
+				exited ? "exited" : "running", t.name[0] ? t.name : "(unnamed)", t.stackMem, t.stackSize, t.start - base, t.argWords[0], t.argWords[1]);
 			count++;
 		}
 		Log("thread audit (%s): %zu unjoined", when, count);
 		return count;
+	}
+
+	void SetCurrentThreadName(const char* name)
+	{
+		const Thread* self = threadGetSelf();
+		if (!self)
+			return;
+		std::lock_guard lock(s_liveMutex);
+		auto it = std::find_if(s_liveThreads.begin(), s_liveThreads.end(),
+							   [self](const LiveThread& t) { return t.handle == self->handle; });
+		if (it == s_liveThreads.end())
+			it = s_liveThreads.insert(it, LiveThread{.handle = self->handle});
+		std::snprintf(it->name, sizeof(it->name), "%s", name);
+	}
+
+	std::vector<ThreadInfo> GetThreads()
+	{
+		std::lock_guard lock(s_liveMutex);
+		std::vector<ThreadInfo> threads;
+		threads.reserve(s_liveThreads.size());
+		for (const LiveThread& t : s_liveThreads)
+		{
+			ThreadInfo& info = threads.emplace_back();
+			info.handle = t.handle;
+			if (t.name[0])
+				std::memcpy(info.name, t.name, sizeof(info.name));
+			else
+				std::snprintf(info.name, sizeof(info.name), "start +%#lx", t.start - GetModuleBase());
+		}
+		return threads;
+	}
+
+	uint32_t GetCurrentThreadHandle()
+	{
+		return threadGetCurHandle();
+	}
+
+	uint64_t GetThreadTicks(uint32_t handle)
+	{
+		const u32 type = hosversionAtLeast(13, 0, 0) ? InfoType_ThreadTickCount : InfoType_ThreadTickCountDeprecated;
+		u64 ticks = 0;
+		if (R_FAILED(svcGetInfo(&ticks, type, handle, TickCountInfo_Total)))
+			return UINT64_MAX;
+		return ticks;
+	}
+
+	uint64_t GetSystemTicks()
+	{
+		return armGetSystemTick();
+	}
+
+	uint64_t GetTickFrequency()
+	{
+		return armGetSystemTickFreq();
+	}
+
+	Clocks ReadClocks()
+	{
+		Clocks clocks;
+		if (R_FAILED(clkrstInitialize()))
+			return clocks;
+		const auto read = [](PcvModuleId module) -> uint32_t {
+			ClkrstSession session;
+			u32 hz = 0;
+			if (R_FAILED(clkrstOpenSession(&session, module, 3)))
+				return 0;
+			clkrstGetClockRate(&session, &hz);
+			clkrstCloseSession(&session);
+			return hz / 1000000;
+		};
+		clocks.cpuMHz = read(PcvModuleId_CpuBus);
+		clocks.gpuMHz = read(PcvModuleId_GPU);
+		clocks.memoryMHz = read(PcvModuleId_EMC);
+		clkrstExit();
+		return clocks;
+	}
+
+	Battery ReadBattery()
+	{
+		Battery battery;
+		if (R_FAILED(psmInitialize()))
+			return battery;
+		u32 percentage = 0;
+		PsmChargerType charger = PsmChargerType_Unconnected;
+		PsmBatteryVoltageState voltage = PsmBatteryVoltageState_Normal;
+		if (R_SUCCEEDED(psmGetBatteryChargePercentage(&percentage)))
+			battery.percentage = percentage;
+		if (R_SUCCEEDED(psmGetChargerType(&charger)))
+			battery.charging = charger != PsmChargerType_Unconnected;
+		if (R_SUCCEEDED(psmGetBatteryVoltageState(&voltage)))
+			battery.voltageLow = voltage != PsmBatteryVoltageState_Normal;
+		psmExit();
+		return battery;
 	}
 
 	uint64_t GetProcessCoreMask()

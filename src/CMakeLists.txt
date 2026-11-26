@@ -100,18 +100,23 @@ if(NINTENDO_SWITCH)
 		Common/switch/HorizonExceptionEntry.S
 		Common/switch/HorizonInput.cpp
 		Common/switch/HorizonKeyboard.cpp
+		Common/switch/HorizonLargeHeap.c
 		Common/switch/HorizonLibcShims.cpp
 		Common/switch/HorizonMalloc.c
 		Common/switch/HorizonMemory.cpp
 		Common/switch/HorizonNetwork.cpp
+		Common/switch/HorizonSampler.cpp
 		Common/switch/HorizonTheme.cpp
+		Common/switch/HorizonWindow.cpp
 	)
 	target_sources(CemuBin PRIVATE
 		${HORIZON_SOURCES}
 		switch/EmulationSwitch.cpp
+		switch/InputReplaySwitch.cpp
 		switch/KeyboardSwitch.cpp
 		switch/MainSwitch.cpp
 		switch/PauseMenuSwitch.cpp
+		switch/PerfMonitorSwitch.cpp
 		switch/ShellConfigSwitch.cpp
 		switch/ShellLibrarySwitch.cpp
 		switch/WindowSystemSwitch.cpp

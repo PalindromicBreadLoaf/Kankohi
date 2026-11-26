@@ -8,6 +8,9 @@ void PPCRecompiler_cleanupAArch64Code(void* code, size_t size);
 
 bool PPCRecompilerAArch64Gen_generateRecompilerInterfaceFunctions();
 void PPCRecompilerAArch64Gen_shutdown();
+#if defined(__SWITCH__)
+std::pair<uintptr_t, uintptr_t> PPCRecompilerAArch64Gen_getCodeRange();
+#endif
 
 // architecture specific constants
 namespace IMLArchAArch64

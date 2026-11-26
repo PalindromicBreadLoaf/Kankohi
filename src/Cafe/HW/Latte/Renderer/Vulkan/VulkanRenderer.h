@@ -193,6 +193,8 @@ public:
 	static VulkanRenderer* GetInstance();
 
 	void UnrecoverableError(const char* errMsg) const;
+	void LogUnfinishedWork() const;
+	void RecordPipeline(const PipelineInfo* pipelineInfo);
 
 	void GetDeviceFeatures();
 	void DetermineVendor();
@@ -517,6 +519,11 @@ private:
 
 	void CreateCommandPool();
 	void CreateCommandBuffers();
+	void CreateTimestampQueries();
+	void WriteBeginTimestamp();
+	void WriteEndTimestamp();
+	void ReadTimestamps(size_t commandBufferIndex);
+	void CheckTimestampRate();
 
 	void swapchain_createDescriptorSetLayout();
 
@@ -722,6 +729,32 @@ private:
 		uint64* ptrQueryResults;
 		std::vector<uint16> list_availableQueryIndices;
 	}m_occlusionQueries;
+
+	struct
+	{
+		VkQueryPool queryPool{VK_NULL_HANDLE};
+		double nanosecondsPerTick{};
+		uint64 validMask{};
+		uint64 lastEnd{};
+		// for checking the reported tick rate against the host clock
+		uint64 firstEnd{};
+		HRTick firstEndHostTime{};
+		HRTick lastReadHostTime{};
+		bool rateLogged{};
+	}m_gpuTimestamps;
+
+	struct
+	{
+		struct Entry
+		{
+			uint64 commandBufferId;
+			uint64 vertexShader;
+			uint64 geometryShader;
+			uint64 pixelShader;
+		};
+		std::array<Entry, 64> entries;
+		uint64 count{};
+	}m_recentPipelines;
 
 	// barrier
 

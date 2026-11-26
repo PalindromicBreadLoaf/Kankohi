@@ -58,6 +58,16 @@ std::optional<int> LaunchSettings::HandleCommandline(int argc, char* argv[])
 // Boost.Program_options isn't built so the options that apply there are parsed here
 std::optional<int> LaunchSettings::HandleCommandline(const std::vector<std::wstring>& args)
 {
+	Benchmark benchmark;
+	bool isBenchmark = false;
+	auto parseSeconds = [](const std::string& value, double& seconds) {
+		char* end = nullptr;
+		const double parsed = std::strtod(value.c_str(), &end);
+		if (end == value.c_str() || *end != '\0' || !(parsed >= 0.0 && parsed <= 86400.0))
+			cemuLog_log(LogType::Force, "Invalid number of seconds: {}", value);
+		else
+			seconds = parsed;
+	};
 	for (size_t i = 0; i < args.size(); i++)
 	{
 		std::string arg = boost::nowide::narrow(args[i]);
@@ -141,6 +151,22 @@ std::optional<int> LaunchSettings::HandleCommandline(const std::vector<std::wstr
 			if (auto value = nextValue())
 				ppcRec_limitUpperAddr = (uint32)StringHelpers::ToInt64(*value);
 		}
+		else if (arg == "--bench")
+		{
+			isBenchmark = true;
+			if (attachedValue)
+				parseSeconds(*attachedValue, benchmark.seconds);
+		}
+		else if (arg == "--warmup")
+		{
+			if (auto value = nextValue())
+				parseSeconds(*value, benchmark.warmupSeconds);
+		}
+		else if (arg == "--label")
+		{
+			if (auto value = nextValue())
+				benchmark.label = *value;
+		}
 		else if (arg == "--set")
 		{
 			if (auto value = nextValue())
@@ -153,9 +179,15 @@ std::optional<int> LaunchSettings::HandleCommandline(const std::vector<std::wstr
 					s_setting_overrides.push_back({value->substr(0, slash), value->substr(slash + 1, equals - slash - 1), value->substr(equals + 1)});
 			}
 		}
+		else if (arg == "--record-input")
+			s_record_input_path = nextValue();
+		else if (arg == "--replay-input")
+			s_replay_input_path = nextValue();
 		else
 			cemuLog_log(LogType::Force, "Ignoring unknown command line option {}", arg);
 	}
+	if (isBenchmark && benchmark.seconds > 0.0)
+		s_benchmark = benchmark;
 	if (ppcRec_limitLowerAddr != 0 && ppcRec_limitUpperAddr != 0)
 		cemuLog_log(LogType::Force, "PPCRec range limited to 0x{:08x}-0x{:08x}", ppcRec_limitLowerAddr, ppcRec_limitUpperAddr);
 	return std::nullopt;

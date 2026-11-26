@@ -13,6 +13,7 @@ namespace
 	AppletHookCookie s_hookCookie;
 	std::atomic_bool s_exitRequested = false;
 	std::atomic_bool s_inFocus = true;
+	std::atomic_uint32_t s_resumeCount = 0;
 	bool s_initialised = false;
 	bool s_romfsMounted = false;
 	int s_boostCount = 0;
@@ -27,6 +28,10 @@ namespace
 			break;
 		case AppletHookType_OnFocusState:
 			s_inFocus = appletGetFocusState() == AppletFocusState_InFocus;
+			break;
+		case AppletHookType_OnResume:
+			HorizonDiagnostics::Log("applet: resumed");
+			s_resumeCount++;
 			break;
 		case AppletHookType_OnOperationMode:
 			HorizonDiagnostics::Log("applet: operation mode %s", HorizonApplet::IsDocked() ? "docked" : "handheld");
@@ -43,6 +48,7 @@ namespace HorizonApplet
 	{
 		appletLockExit();
 		appletHook(&s_hookCookie, OnAppletHook, nullptr);
+		appletSetRestartMessageEnabled(true);
 		if (IsApplication())
 			appletSetAutoSleepDisabled(true);
 
@@ -112,6 +118,11 @@ namespace HorizonApplet
 	bool IsDocked()
 	{
 		return appletGetOperationMode() == AppletOperationMode_Console;
+	}
+
+	uint32_t GetResumeCount()
+	{
+		return s_resumeCount;
 	}
 
 	void GetDisplaySize(int& width, int& height)

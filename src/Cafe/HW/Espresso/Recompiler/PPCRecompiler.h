@@ -22,7 +22,7 @@ struct PPCRecFunction_t
 	{
 		MPTR ppcAddr;
 		void* hostEntrypoint;
-		
+
 		JumpTableEntry(MPTR ppcAddr, void* hostEntrypoint) : ppcAddr(ppcAddr), hostEntrypoint(hostEntrypoint) {};
 	};
 
@@ -65,7 +65,7 @@ struct ppcImlGenContext_t
 	// code generation control
 	bool hasFPUInstruction; // if true, PPCEnter macro will create FP_UNAVAIL checks -> Not needed in user mode
 	// analysis info
-	struct  
+	struct
 	{
 		bool modifiesGQR[8];
 	}tracking;
@@ -127,7 +127,7 @@ struct ppcImlGenContext_t
 
 typedef void ATTR_MS_ABI (*PPCREC_JUMP_ENTRY)();
 
-typedef struct  
+typedef struct
 {
 	PPCREC_JUMP_ENTRY ppcRecompilerDirectJumpTable[PPC_REC_ALIGN_TO_4MB(PPC_REC_CODE_AREA_SIZE/4)]; // lookup table for ppc offset to native code function
 	// x64 data
@@ -167,6 +167,20 @@ void PPCRecompiler_invalidateRange(uint32 startAddr, uint32 endAddr);
 extern void ATTR_MS_ABI (*PPCRecompiler_enterRecompilerCode)(uint64 codeMem, uint64 ppcInterpreterInstance);
 extern void ATTR_MS_ABI (*PPCRecompiler_leaveRecompilerCode_visited)();
 extern void ATTR_MS_ABI (*PPCRecompiler_leaveRecompilerCode_unvisited)();
+
+struct PPCRecompilerHostRange
+{
+	uint32 ppcAddress;
+	uintptr_t hostAddress;
+	size_t hostSize;
+};
+
+std::vector<PPCRecompilerHostRange> PPCRecompiler_GetHostRanges();
+
+// start and end of the memory all host code is in
+#if defined(__SWITCH__)
+std::pair<uintptr_t, uintptr_t> PPCRecompiler_GetHostCodeArea();
+#endif
 
 // recompiler interface
 

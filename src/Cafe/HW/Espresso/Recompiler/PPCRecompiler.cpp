@@ -719,6 +719,32 @@ void PPCRecompiler_init()
     s_ppcRecompilerState.workerThread = std::thread(PPCRecompiler_thread);
 }
 
+std::vector<PPCRecompilerHostRange> PPCRecompiler_GetHostRanges()
+{
+	std::vector<PPCRecompilerHostRange> ranges;
+	s_ppcRecompilerState.recompilerSpinlock.lock();
+	const size_t functionCount = s_ppcRecompilerState.functions.size();
+	s_ppcRecompilerState.recompilerSpinlock.unlock();
+	ranges.reserve(functionCount + 256);
+
+	s_ppcRecompilerState.recompilerSpinlock.lock();
+	for (const PPCRecFunction_t* func : s_ppcRecompilerState.functions)
+	{
+		if (ranges.size() == ranges.capacity())
+			break;
+		ranges.push_back({func->ppcAddress, (uintptr_t)func->x86Code, func->x86Size});
+	}
+	s_ppcRecompilerState.recompilerSpinlock.unlock();
+	return ranges;
+}
+
+#if defined(__SWITCH__)
+std::pair<uintptr_t, uintptr_t> PPCRecompiler_GetHostCodeArea()
+{
+	return PPCRecompilerAArch64Gen_getCodeRange();
+}
+#endif
+
 void PPCRecompiler_Shutdown()
 {
     // shut down recompiler thread

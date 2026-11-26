@@ -129,6 +129,7 @@ if(NINTENDO_SWITCH)
 		INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/dependencies/dlmalloc")
 	target_link_options(CemuBin PRIVATE
 		-Wl,--wrap=pthread_create -Wl,--wrap=pthread_join
+		-Wl,--wrap=nwindowDequeueBuffer -Wl,--wrap=binderConvertErrorCode
 		-Wl,--wrap=socket -Wl,--wrap=socketpair
 		-Wl,--wrap=getaddrinfo -Wl,--wrap=getnameinfo -Wl,--wrap=gethostbyname -Wl,--wrap=gethostbyaddr
 	)

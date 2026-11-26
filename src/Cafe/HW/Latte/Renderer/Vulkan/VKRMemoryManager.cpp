@@ -31,14 +31,17 @@ void VKRSynchronizedRingAllocator::allocateAdditionalUploadBuffer(uint32 sizeReq
 	AllocatorBuffer_t newBuffer{};
 	newBuffer.writeIndex = 0;
 	newBuffer.basePtr = nullptr;
+	bool created = false;
 	if (m_bufferType == VKR_BUFFER_TYPE::STAGING)
-		m_vkrMemMgr->CreateBuffer(bufferAllocSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, newBuffer.vk_buffer, newBuffer.vk_mem);
+		created = m_vkrMemMgr->CreateBuffer(bufferAllocSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, newBuffer.vk_buffer, newBuffer.vk_mem);
 	else if (m_bufferType == VKR_BUFFER_TYPE::INDEX)
-		m_vkrMemMgr->CreateBuffer(bufferAllocSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, newBuffer.vk_buffer, newBuffer.vk_mem);
+		created = m_vkrMemMgr->CreateBuffer(bufferAllocSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, newBuffer.vk_buffer, newBuffer.vk_mem);
 	else if (m_bufferType == VKR_BUFFER_TYPE::STRIDE)
-		m_vkrMemMgr->CreateBuffer(bufferAllocSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, newBuffer.vk_buffer, newBuffer.vk_mem);
+		created = m_vkrMemMgr->CreateBuffer(bufferAllocSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, newBuffer.vk_buffer, newBuffer.vk_mem);
 	else
 		cemu_assert_debug(false);
+	if (!created)
+		m_vkr->UnrecoverableError("Failed to allocate buffer memory for VKRSynchronizedRingAllocator");
 
 	void* bufferPtr = nullptr;
 	vkMapMemory(m_vkr->GetLogicalDevice(), newBuffer.vk_mem, 0, VK_WHOLE_SIZE, 0, &bufferPtr);
@@ -485,6 +488,7 @@ bool VKRMemoryManager::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
 	if (vkAllocateMemory(m_vkr->GetLogicalDevice(), &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
 	{
 		vkDestroyBuffer(m_vkr->GetLogicalDevice(), buffer, nullptr);
+		cemuLog_log(LogType::Force, "Failed to allocate 0x{:x} bytes of buffer memory (CreateBuffer)", allocInfo.allocationSize);
 		return false;
 	}
 	if (vkBindBufferMemory(m_vkr->GetLogicalDevice(), buffer, bufferMemory, 0) != VK_SUCCESS)

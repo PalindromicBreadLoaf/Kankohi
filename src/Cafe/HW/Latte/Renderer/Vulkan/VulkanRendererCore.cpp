@@ -1477,6 +1477,7 @@ void VulkanRenderer::draw_execute_first(uint32 baseVertex, uint32 baseInstance, 
 		vkCmdBindPipeline(m_state.currentCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkObjPipeline->GetPipeline());
 		vkObjPipeline->flagForCurrentCommandBuffer();
 		m_state.currentPipeline = vkObjPipeline->GetPipeline();
+		RecordPipeline(pipeline_info);
 		// depth bias
 		if (pipeline_info->usesDepthBias)
 			draw_updateDepthBias(true);
@@ -1671,6 +1672,7 @@ void VulkanRenderer::draw_execute_continued(uint32 baseVertex, uint32 baseInstan
 		vkCmdBindPipeline(m_state.currentCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vkObjPipeline->GetPipeline());
 		vkObjPipeline->flagForCurrentCommandBuffer();
 		m_state.currentPipeline = vkObjPipeline->GetPipeline();
+		RecordPipeline(pipeline_info);
 		// depth bias
 		if (pipeline_info->usesDepthBias)
 			draw_updateDepthBias(true);

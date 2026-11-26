@@ -32,6 +32,9 @@
 #include "Cafe/TitleList/GameInfo.h"
 
 #include "Cafe/HW/Latte/Core/LatteTiming.h" // vsync control
+#if defined(__SWITCH__)
+#include "Common/switch/HorizonDiagnostics.h"
+#endif
 
 #include <cstdint>
 #include <glslang/Public/ShaderLang.h>
@@ -97,6 +100,15 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugUtilsCallback(VkDebugUtilsMessageSeverityFla
 
 	return VK_FALSE;
 }
+
+#if defined(__SWITCH__)
+static VKAPI_ATTR VkBool32 VKAPI_CALL DriverMessageCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+{
+	if (!strstr(pCallbackData->pMessage, "VK_ERROR_FORMAT_NOT_SUPPORTED"))
+		cemuLog_log(LogType::Force, "NXVK: {} at {}", pCallbackData->pMessage, pCallbackData->pMessageIdName);
+	return VK_FALSE;
+}
+#endif
 
 std::vector<VulkanRenderer::DeviceInfo> VulkanRenderer::GetDevices()
 {
@@ -818,6 +830,20 @@ VulkanRenderer::VulkanRenderer() : Renderer(RendererAPI::Vulkan)
 		cemuLog_log(LogType::Force, "Debug: Vulkan validation layer enabled, vkCreateDebugUtilsMessengerEXT will be used to log validation errors");
 	}
 
+#if defined(__SWITCH__)
+	if (!useValidationLayer && m_featureControl.instanceExtensions.debug_utils)
+	{
+		PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT"));
+
+		VkDebugUtilsMessengerCreateInfoEXT driverCallback{};
+		driverCallback.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+		driverCallback.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
+		driverCallback.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT;
+		driverCallback.pfnUserCallback = &DriverMessageCallback;
+		vkCreateDebugUtilsMessengerEXT(m_instance, &driverCallback, nullptr, &m_debugCallback);
+	}
+#endif
+
 	if (this->IsTracingToolEnabled())
 		cemuLog_log(LogType::Force, "Debug: Tracing tool detected, will recompile all shaders with debug info enabled. This disables the SPIR-V cache.");
 	if (this->IsDebugMarkersEnabled())
@@ -833,6 +859,7 @@ VulkanRenderer::VulkanRenderer() : Renderer(RendererAPI::Vulkan)
 	QueryAvailableFormats();
 	CreateCommandPool();
 	CreateCommandBuffers();
+	CreateTimestampQueries();
 	CreateDescriptorPool();
 	swapchain_createDescriptorSetLayout();
 
@@ -852,7 +879,8 @@ VulkanRenderer::VulkanRenderer() : Renderer(RendererAPI::Vulkan)
 		m_uniformVarBufferMemoryIsCoherent = true;
 	else
 	{
-		memoryManager->CreateBuffer(UNIFORMVAR_RINGBUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory);
+		if (!memoryManager->CreateBuffer(UNIFORMVAR_RINGBUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, m_uniformVarBuffer, m_uniformVarBufferMemory))
+			UnrecoverableError("Failed to allocate the uniform buffer");
 	}
 
 	if (!m_uniformVarBufferMemoryIsCoherent)
@@ -864,7 +892,8 @@ VulkanRenderer::VulkanRenderer() : Renderer(RendererAPI::Vulkan)
 	// texture readback buffer
 	if (!memoryManager->CreateBuffer(TEXTURE_READBACK_SIZE, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_textureReadbackBuffer, m_textureReadbackBufferMemory))
 	{
-		memoryManager->CreateBuffer(TEXTURE_READBACK_SIZE, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_textureReadbackBuffer, m_textureReadbackBufferMemory);
+		if (!memoryManager->CreateBuffer(TEXTURE_READBACK_SIZE, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_textureReadbackBuffer, m_textureReadbackBufferMemory))
+			UnrecoverableError("Failed to allocate the texture readback buffer");
 	}
 	bufferPtr = nullptr;
 	vkMapMemory(m_logicalDevice, m_textureReadbackBufferMemory, 0, VK_WHOLE_SIZE, 0, &bufferPtr);
@@ -872,12 +901,14 @@ VulkanRenderer::VulkanRenderer() : Renderer(RendererAPI::Vulkan)
 
 	// transform feedback ringbuffer
 	VkBufferUsageFlags xfbRingBufferUsage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-	memoryManager->CreateBuffer(LatteStreamout_GetRingBufferSize(), xfbRingBufferUsage, 0, m_xfbRingBuffer, m_xfbRingBufferMemory);
+	if (!memoryManager->CreateBuffer(LatteStreamout_GetRingBufferSize(), xfbRingBufferUsage, 0, m_xfbRingBuffer, m_xfbRingBufferMemory))
+		UnrecoverableError("Failed to allocate the streamout buffer");
 
 	// occlusion query result buffer
 	if (!memoryManager->CreateBuffer(OCCLUSION_QUERY_POOL_SIZE * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults))
 	{
-		memoryManager->CreateBuffer(OCCLUSION_QUERY_POOL_SIZE * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults);
+		if (!memoryManager->CreateBuffer(OCCLUSION_QUERY_POOL_SIZE * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, m_occlusionQueries.bufferQueryResults, m_occlusionQueries.memoryQueryResults))
+			UnrecoverableError("Failed to allocate the occlusion query buffer");
 	}
 	bufferPtr = nullptr;
 	vkMapMemory(m_logicalDevice, m_occlusionQueries.memoryQueryResults, 0, VK_WHOLE_SIZE, 0, &bufferPtr);
@@ -923,6 +954,8 @@ VulkanRenderer::~VulkanRenderer()
 
 	if(m_occlusionQueries.queryPool != VK_NULL_HANDLE)
 		vkDestroyQueryPool(m_logicalDevice, m_occlusionQueries.queryPool, nullptr);
+	if(m_gpuTimestamps.queryPool != VK_NULL_HANDLE)
+		vkDestroyQueryPool(m_logicalDevice, m_gpuTimestamps.queryPool, nullptr);
 
 	vkDestroyDescriptorSetLayout(m_logicalDevice, m_swapchainDescriptorSetLayout, nullptr);
 
@@ -1249,7 +1282,17 @@ void VulkanRenderer::HandleScreenshotRequest(LatteTextureView* texView, bool pad
 
 	VkBuffer buffer = nullptr;
 	VkDeviceMemory bufferMemory = nullptr;
-	memoryManager->CreateBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, buffer, bufferMemory);
+	if (!memoryManager->CreateBuffer(size, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT, buffer, bufferMemory))
+	{
+		cemuLog_log(LogType::Force, "Failed to allocate the screenshot buffer");
+		SubmitCommandBuffer();
+		WaitCommandBufferFinished(GetCurrentCommandBufferId());
+		if (image)
+			vkDestroyImage(m_logicalDevice, image, nullptr);
+		if (imageMemory)
+			vkFreeMemory(m_logicalDevice, imageMemory, nullptr);
+		return;
+	}
 	vkMapMemory(m_logicalDevice, bufferMemory, 0, VK_WHOLE_SIZE, 0, &bufferPtr);
 
 	// if no blit was necessary a barrier still needs to be inserted and slice may not be zero
@@ -1950,7 +1993,29 @@ void VulkanRenderer::UnrecoverableError(const char* errMsg) const
 {
 	cemuLog_log(LogType::Force, "Unrecoverable error in Vulkan renderer");
 	cemuLog_log(LogType::Force, "Msg: {}", errMsg);
+	LogUnfinishedWork();
 	throw std::runtime_error(errMsg);
+}
+
+void VulkanRenderer::LogUnfinishedWork() const
+{
+	cemuLog_log(LogType::Force, "Command buffers: {} submitted, {} finished", m_numSubmittedCmdBuffers, m_countCommandBufferFinished);
+#if defined(__SWITCH__)
+	cemuLog_log(LogType::Force, "Heap: {} MiB free, largest block {} MiB", HorizonDiagnostics::GetFreeHeap() >> 20, HorizonDiagnostics::GetLargestFreeBlock() >> 20);
+#endif
+	const uint64 entryCount = m_recentPipelines.entries.size();
+	for (uint64 i = m_recentPipelines.count - std::min(m_recentPipelines.count, entryCount); i < m_recentPipelines.count; i++)
+	{
+		const auto& entry = m_recentPipelines.entries[i % entryCount];
+		if (entry.commandBufferId >= m_countCommandBufferFinished)
+			cemuLog_log(LogType::Force, "Unfinished: command buffer {} vs {:016x} gs {:016x} ps {:016x}", entry.commandBufferId, entry.vertexShader, entry.geometryShader, entry.pixelShader);
+	}
+}
+
+void VulkanRenderer::RecordPipeline(const PipelineInfo* pipelineInfo)
+{
+	auto getHash = [](const LatteDecompilerShader* shader) { return shader ? shader->baseHash : 0; };
+	m_recentPipelines.entries[m_recentPipelines.count++ % m_recentPipelines.entries.size()] = {GetCurrentCommandBufferId(), getHash(pipelineInfo->vertexShader), getHash(pipelineInfo->geometryShader), getHash(pipelineInfo->pixelShader)};
 }
 
 struct VulkanRequestedFormat_t
@@ -2196,6 +2261,97 @@ void VulkanRenderer::DrawEmptyFrame(bool mainWindow)
 	SwapBuffers(mainWindow, !mainWindow);
 }
 
+void VulkanRenderer::CreateTimestampQueries()
+{
+	if (!performanceMonitor.measureHostGPUTime)
+		return;
+	uint32_t queueFamilyCount = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &queueFamilyCount, nullptr);
+	std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+	vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &queueFamilyCount, queueFamilies.data());
+	const uint32 validBits = queueFamilies[m_indices.graphicsFamily].timestampValidBits;
+	if (validBits == 0)
+	{
+		cemuLog_log(LogType::Force, "Vulkan: The graphics queue has no timestamps");
+		return;
+	}
+	VkPhysicalDeviceProperties properties{};
+	vkGetPhysicalDeviceProperties(m_physicalDevice, &properties);
+#if defined(__SWITCH__)
+	m_gpuTimestamps.nanosecondsPerTick = 625.0 / 384.0;
+#else
+	m_gpuTimestamps.nanosecondsPerTick = properties.limits.timestampPeriod;
+#endif
+	m_gpuTimestamps.validMask = validBits >= 64 ? UINT64_MAX : ((uint64)1 << validBits) - 1;
+
+	VkQueryPoolCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+	createInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+	createInfo.queryCount = kCommandBufferPoolSize * 2;
+	const VkResult result = vkCreateQueryPool(m_logicalDevice, &createInfo, nullptr, &m_gpuTimestamps.queryPool);
+	if (result != VK_SUCCESS)
+	{
+		cemuLog_log(LogType::Force, "Vulkan: Failed to create the timestamp query pool: {}", result);
+		m_gpuTimestamps.queryPool = VK_NULL_HANDLE;
+	}
+}
+
+void VulkanRenderer::WriteBeginTimestamp()
+{
+	if (m_gpuTimestamps.queryPool == VK_NULL_HANDLE)
+		return;
+	const uint32 firstQuery = (uint32)m_commandBufferIndex * 2;
+	vkCmdResetQueryPool(m_state.currentCommandBuffer, m_gpuTimestamps.queryPool, firstQuery, 2);
+	vkCmdWriteTimestamp(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_gpuTimestamps.queryPool, firstQuery);
+}
+
+void VulkanRenderer::WriteEndTimestamp()
+{
+	if (m_gpuTimestamps.queryPool == VK_NULL_HANDLE)
+		return;
+	vkCmdWriteTimestamp(m_state.currentCommandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_gpuTimestamps.queryPool, (uint32)m_commandBufferIndex * 2 + 1);
+}
+
+void VulkanRenderer::ReadTimestamps(size_t commandBufferIndex)
+{
+	if (m_gpuTimestamps.queryPool == VK_NULL_HANDLE)
+		return;
+	uint64 timestamps[2];
+	if (vkGetQueryPoolResults(m_logicalDevice, m_gpuTimestamps.queryPool, (uint32)commandBufferIndex * 2, 2, sizeof(timestamps), timestamps, sizeof(uint64), VK_QUERY_RESULT_64_BIT) != VK_SUCCESS)
+		return;
+	const uint64 start = std::max(timestamps[0] & m_gpuTimestamps.validMask, m_gpuTimestamps.lastEnd);
+	const uint64 end = timestamps[1] & m_gpuTimestamps.validMask;
+	if (end > start)
+		performanceMonitor.hostGPUBusyNs += (uint64)((double)(end - start) * m_gpuTimestamps.nanosecondsPerTick);
+	m_gpuTimestamps.lastEnd = end;
+}
+
+void VulkanRenderer::CheckTimestampRate()
+{
+	if (m_gpuTimestamps.queryPool == VK_NULL_HANDLE || m_gpuTimestamps.rateLogged)
+		return;
+	const uint64 end = m_gpuTimestamps.lastEnd;
+	const HRTick now = HighResolutionTimer::now().getTick();
+	const HRTick previousRead = std::exchange(m_gpuTimestamps.lastReadHostTime, now);
+	// a timestamp was written at most one read interval ago, so the window must not have long ones
+	if (previousRead == 0 || HighResolutionTimer::getTimeDiff(previousRead, now) > 0.25)
+	{
+		m_gpuTimestamps.firstEndHostTime = 0;
+		return;
+	}
+	if (m_gpuTimestamps.firstEndHostTime == 0)
+	{
+		m_gpuTimestamps.firstEnd = end;
+		m_gpuTimestamps.firstEndHostTime = now;
+		return;
+	}
+	const double elapsedSeconds = HighResolutionTimer::getTimeDiff(m_gpuTimestamps.firstEndHostTime, now);
+	if (elapsedSeconds < 10.0 || end <= m_gpuTimestamps.firstEnd)
+		return;
+	cemuLog_log(LogType::Force, "Vulkan: Timestamp period is {} ns, measured {:.4f} ns", m_gpuTimestamps.nanosecondsPerTick, elapsedSeconds * 1e9 / (double)(end - m_gpuTimestamps.firstEnd));
+	m_gpuTimestamps.rateLogged = true;
+}
+
 void VulkanRenderer::InitFirstCommandBuffer()
 {
 	cemu_assert_debug(m_state.currentCommandBuffer == nullptr);
@@ -2212,6 +2368,7 @@ void VulkanRenderer::InitFirstCommandBuffer()
 
 	vkCmdSetViewport(m_state.currentCommandBuffer, 0, 1, &m_state.currentViewport);
 	vkCmdSetScissor(m_state.currentCommandBuffer, 0, 1, &m_state.currentScissorRect);
+	WriteBeginTimestamp();
 
 	m_state.resetCommandBufferState();
 }
@@ -2224,6 +2381,7 @@ void VulkanRenderer::ProcessFinishedCommandBuffers()
 		VkResult fenceStatus = vkGetFenceStatus(m_logicalDevice, m_cmdBufferFences[m_commandBufferSyncIndex]);
 		if (fenceStatus == VK_SUCCESS)
 		{
+			ReadTimestamps(m_commandBufferSyncIndex);
 			ProcessDestructionQueue();
 			m_uniformVarBufferReadIndex = m_cmdBufferUniformRingbufIndices[m_commandBufferSyncIndex];
 			m_commandBufferSyncIndex = (m_commandBufferSyncIndex + 1) % m_commandBuffers.size();
@@ -2241,6 +2399,7 @@ void VulkanRenderer::ProcessFinishedCommandBuffers()
 	}
 	if (finishedCmdBuffers)
 	{
+		CheckTimestampRate();
 		LatteTextureReadback_UpdateFinishedTransfers(false);
 	}
 }
@@ -2249,7 +2408,9 @@ void VulkanRenderer::WaitForNextFinishedCommandBuffer()
 {
 	cemu_assert_debug(m_commandBufferSyncIndex != m_commandBufferIndex);
 	// wait on least recently submitted command buffer
+	performanceMonitor.gpuTime_waitForHostGPU.beginMeasuring();
 	VkResult result = vkWaitForFences(m_logicalDevice, 1, &m_cmdBufferFences[m_commandBufferSyncIndex], true, UINT64_MAX);
+	performanceMonitor.gpuTime_waitForHostGPU.endMeasuring();
 	if (result == VK_TIMEOUT)
 	{
 		cemuLog_log(LogType::Force, "vkWaitForFences: Returned VK_TIMEOUT on infinite fence");
@@ -2267,6 +2428,7 @@ void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphor
 	draw_endRenderPass();
 
 	occlusionQuery_notifyEndCommandBuffer();
+	WriteEndTimestamp();
 
 	vkEndCommandBuffer(m_state.currentCommandBuffer);
 
@@ -2302,9 +2464,13 @@ void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphor
 	submitInfo.pWaitDstStageMask = semWaitStageMask;
 	submitInfo.pWaitSemaphores = waitSemArray;
 
+	const HRTick submitStart = HighResolutionTimer::now().getTick();
 	const VkResult result = vkQueueSubmit(m_graphicsQueue, 1, &submitInfo, m_cmdBufferFences[m_commandBufferIndex]);
 	if (result != VK_SUCCESS)
-		UnrecoverableError(fmt::format("failed to submit command buffer. Error {}", result).c_str());
+	{
+		const double submitMs = (double)(HighResolutionTimer::now().getTick() - submitStart) * 1000.0 / (double)HighResolutionTimer::getFrequency();
+		UnrecoverableError(fmt::format("failed to submit command buffer. Error {} after {:.1f} ms", result, submitMs).c_str());
+	}
 	m_numSubmittedCmdBuffers++;
 
 	// check if any previously submitted command buffers have finished execution
@@ -2334,6 +2500,7 @@ void VulkanRenderer::SubmitCommandBuffer(VkSemaphore signalSemaphore, VkSemaphor
 	// make sure some states are set for this command buffer
 	vkCmdSetViewport(m_state.currentCommandBuffer, 0, 1, &m_state.currentViewport);
 	vkCmdSetScissor(m_state.currentCommandBuffer, 0, 1, &m_state.currentScissorRect);
+	WriteBeginTimestamp();
 
 	// DEBUG
 	//debug_genericBarrier();
@@ -3014,7 +3181,9 @@ bool VulkanRenderer::AcquireNextSwapchainImage(bool mainWindow)
 	if (!UpdateSwapchainProperties(mainWindow))
 		return false;
 
+	performanceMonitor.gpuTime_present.beginMeasuring();
 	bool result = chainInfo.AcquireImage();
+	performanceMonitor.gpuTime_present.endMeasuring();
 	if (!result)
 		return false;
 
@@ -3112,6 +3281,7 @@ void VulkanRenderer::SwapBuffer(bool mainWindow)
 	WaitCommandBufferFinished(m_commandBufferIDOfPrevFrame);
 	m_commandBufferIDOfPrevFrame = currentFrameCmdBufferID;
 
+	performanceMonitor.gpuTime_present.beginMeasuring();
 	chainInfo.WaitAvailableFence();
 
 	VkPresentIdKHR presentId = {};
@@ -3144,6 +3314,7 @@ void VulkanRenderer::SwapBuffer(bool mainWindow)
 	}
 
 	VkResult result = vkQueuePresentKHR(m_presentQueue, &presentInfo);
+	performanceMonitor.gpuTime_present.endMeasuring();
 	if (result < 0 && result != VK_ERROR_OUT_OF_DATE_KHR)
 	{
 		throw std::runtime_error(fmt::format("Failed to present image: {}", result));
@@ -3937,7 +4108,8 @@ void VulkanRenderer::bufferCache_init(const sint32 bufferSize)
 	}
 	*/
 	if(!m_useHostMemoryForCache)
-		memoryManager->CreateBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 0, m_bufferCache, m_bufferCacheMemory);
+		if (!memoryManager->CreateBuffer(bufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 0, m_bufferCache, m_bufferCacheMemory))
+			UnrecoverableError("Failed to allocate the buffer cache");
 }
 
 void VulkanRenderer::bufferCache_upload(uint8* buffer, sint32 size, uint32 bufferOffset)

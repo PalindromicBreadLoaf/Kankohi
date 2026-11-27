@@ -8,6 +8,7 @@
 #include "config/LaunchSettings.h"
 #include "Common/ExceptionHandler/ExceptionHandler.h"
 #include "Common/cpu_features.h"
+#include "Cemu/PPCAssembler/ppcAssembler.h"
 #include "util/helpers/fspinlock.h"
 #include "util/helpers/helpers.h"
 #include "util/MemMapper/MemMapper.h"
@@ -19,6 +20,8 @@
 #include "BackendAArch64/BackendAArch64.h"
 #endif
 #include "util/highresolutiontimer/HighResolutionTimer.h"
+
+#include <condition_variable>
 
 #define PPCREC_FORCE_SYNCHRONOUS_COMPILATION	0 // if 1, then function recompilation will block and execute on the thread that called PPCRecompiler_visitAddressNoBlock
 #define PPCREC_LOG_RECOMPILATION_RESULTS		0
@@ -49,6 +52,9 @@ struct
 	// recompiler thread
 	std::thread workerThread;
 	std::atomic_bool workerThreadStopSignal{false};
+	std::mutex workerMutex;
+	std::condition_variable workerCondition;
+	std::atomic_bool workerWakeRequested{false};
 	// function storage
 	RangeStore<PPCRecFunction_t*, uint32, 7703, 0x2000> functionStorage;
 	std::vector<PPCRecFunction_t*> functions;
@@ -64,7 +70,90 @@ PPCRecompilerInstanceData_t* ppcRecompilerInstanceData;
 static std::mutex s_singleRecompilationMutex;
 #endif
 
+static struct
+{
+	std::mutex mutex;
+	std::array<uint32, (size_t)PPCRecRejection::Count> counts{};
+	std::unordered_map<std::string, uint32> unsupportedInstructions;
+}s_rejectionStats;
+
+static const char* PPCRecompiler_GetRejectionName(PPCRecRejection rejection)
+{
+	switch (rejection)
+	{
+	case PPCRecRejection::OutsideCodeArea: return "outside code area";
+	case PPCRecRejection::CodeGenArea: return "codegen area";
+	case PPCRecRejection::AddressFilter: return "address filter";
+	case PPCRecRejection::UnsupportedInstruction: return "unsupported instruction";
+	case PPCRecRejection::IMLGeneration: return "IML generation";
+	case PPCRecRejection::Backend: return "backend";
+	case PPCRecRejection::CodeArenaFull: return "code arena full";
+	case PPCRecRejection::OutOfMemory: return "out of memory";
+	default: return "unknown";
+	}
+}
+
+static std::string PPCRecompiler_GetInstructionName(uint32 address)
+{
+	const uint32 opcode = memory_readU32(address);
+	PPCDisassembledInstruction disasm{};
+	ppcAssembler_disassemble(address, opcode, &disasm);
+	if (disasm.ppcAsmCode != PPCASM_OP_UKN)
+		return ppcAssembler_getInstructionName(disasm.ppcAsmCode);
+	return fmt::format("op {}/{}", opcode >> 26, (opcode >> 1) & 0x3FF);
+}
+
+static void PPCRecompiler_recordRejection(PPCRecRejection rejection, uint32 functionAddress, uint32 instructionAddress)
+{
+	std::string instructionName;
+	if (rejection == PPCRecRejection::UnsupportedInstruction)
+		instructionName = PPCRecompiler_GetInstructionName(instructionAddress);
+	std::unique_lock lock(s_rejectionStats.mutex);
+	const uint32 count = s_rejectionStats.counts[(size_t)rejection]++;
+	if (rejection == PPCRecRejection::UnsupportedInstruction)
+	{
+		if (s_rejectionStats.unsupportedInstructions[instructionName]++ == 0)
+			cemuLog_log(LogType::Force, "Recompiler: Unsupported instruction {} at 0x{:08x}, interpreting function 0x{:08x}", instructionName, instructionAddress, functionAddress);
+	}
+	else if (rejection == PPCRecRejection::OutOfMemory && count < 8)
+		cemuLog_log(LogType::Force, "Recompiler: Out of memory, interpreting function 0x{:08x}", functionAddress);
+}
+
+static void PPCRecompiler_logRejections()
+{
+	std::unique_lock lock(s_rejectionStats.mutex);
+	std::string reasons;
+	uint32 total = 0;
+	for (size_t i = 0; i < s_rejectionStats.counts.size(); i++)
+	{
+		if (s_rejectionStats.counts[i] == 0)
+			continue;
+		total += s_rejectionStats.counts[i];
+		reasons.append(fmt::format("{}{} {}", reasons.empty() ? "" : ", ", s_rejectionStats.counts[i], PPCRecompiler_GetRejectionName((PPCRecRejection)i)));
+	}
+	if (total != 0)
+		cemuLog_log(LogType::Force, "Recompiler: {} functions were interpreted ({})", total, reasons);
+	if (!s_rejectionStats.unsupportedInstructions.empty())
+	{
+		std::vector<std::pair<std::string, uint32>> instructions(s_rejectionStats.unsupportedInstructions.begin(), s_rejectionStats.unsupportedInstructions.end());
+		std::sort(instructions.begin(), instructions.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
+		std::string list;
+		for (const auto& [name, count] : instructions)
+			list.append(fmt::format("{}{} {}", list.empty() ? "" : ", ", name, count));
+		cemuLog_log(LogType::Force, "Recompiler: Unsupported instructions by function count: {}", list);
+	}
+	s_rejectionStats.counts.fill(0);
+	s_rejectionStats.unsupportedInstructions.clear();
+}
+
 void PPCRecompiler_recompileAtAddress(uint32 address);
+
+static void PPCRecompiler_wakeWorker()
+{
+	std::unique_lock lock(s_ppcRecompilerState.workerMutex);
+	s_ppcRecompilerState.workerWakeRequested = true;
+	s_ppcRecompilerState.workerCondition.notify_one();
+}
 
 // this function does never block and can fail if the recompiler lock cannot be acquired immediately
 void PPCRecompiler_visitAddressNoBlock(uint32 enterAddress)
@@ -102,10 +191,13 @@ void PPCRecompiler_visitAddressNoBlock(uint32 enterAddress)
 		return;
 	}
 	// add to recompilation queue and flag as visited
+	const bool wakeWorker = s_ppcRecompilerState.targetQueue.empty();
 	s_ppcRecompilerState.targetQueue.emplace(enterAddress);
 	ppcRecompilerInstanceData->ppcRecompilerDirectJumpTable[enterAddress / 4] = PPCRecompiler_leaveRecompilerCode_visited;
 
 	s_ppcRecompilerState.recompilerSpinlock.unlock();
+	if (wakeWorker)
+		PPCRecompiler_wakeWorker();
 }
 
 void PPCRecompiler_recompileIfUnvisited(uint32 enterAddress)
@@ -182,6 +274,7 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 	if (range.startAddress >= PPC_REC_CODE_AREA_END)
 	{
 		cemuLog_log(LogType::Force, "Attempting to recompile function outside of allowed code area");
+		PPCRecompiler_recordRejection(PPCRecRejection::OutsideCodeArea, range.startAddress, 0);
 		return nullptr;
 	}
 	uint32 codeGenRangeStart;
@@ -193,12 +286,13 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 		{
 			if (coreinit::codeGenShouldAvoid())
 			{
+				PPCRecompiler_recordRejection(PPCRecRejection::CodeGenArea, range.startAddress, 0);
 				return nullptr;
 			}
 		}
 	}
 
-	PPCRecFunction_t* ppcRecFunc = new PPCRecFunction_t();
+	auto ppcRecFunc = std::make_unique<PPCRecFunction_t>();
 	ppcRecFunc->ppcAddress = range.startAddress;
 	ppcRecFunc->ppcSize = range.length;
 
@@ -210,12 +304,14 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 	// generate intermediate code
 	ppcImlGenContext_t ppcImlGenContext = { 0 };
 	ppcImlGenContext.debug_entryPPCAddress = range.startAddress;
-	bool compiledSuccessfully = PPCRecompiler_generateIntermediateCode(ppcImlGenContext, ppcRecFunc, entryAddresses, boundaryTracker);
-	if (compiledSuccessfully == false)
-	{
-		delete ppcRecFunc;
+	auto reject = [&](PPCRecRejection fallback) -> PPCRecFunction_t* {
+		const PPCRecRejection rejection = ppcImlGenContext.rejection != PPCRecRejection::None ? ppcImlGenContext.rejection : fallback;
+		PPCRecompiler_recordRejection(rejection, range.startAddress, ppcImlGenContext.unsupportedInstructionAddress);
 		return nullptr;
-	}
+	};
+	bool compiledSuccessfully = PPCRecompiler_generateIntermediateCode(ppcImlGenContext, ppcRecFunc.get(), entryAddresses, boundaryTracker);
+	if (compiledSuccessfully == false)
+		return reject(PPCRecRejection::IMLGeneration);
 
 	uint32 ppcRecLowerAddr = LaunchSettings::GetPPCRecLowerAddr();
 	uint32 ppcRecUpperAddr = LaunchSettings::GetPPCRecUpperAddr();
@@ -223,34 +319,22 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 	if (ppcRecLowerAddr != 0 && ppcRecUpperAddr != 0)
 	{
 		if (ppcRecFunc->ppcAddress < ppcRecLowerAddr || ppcRecFunc->ppcAddress > ppcRecUpperAddr)
-		{
-			delete ppcRecFunc;
-			return nullptr;
-		}
+			return reject(PPCRecRejection::AddressFilter);
 	}
 
 	// apply passes
 	if (!PPCRecompiler_ApplyIMLPasses(ppcImlGenContext))
-	{
-		delete ppcRecFunc;
-		return nullptr;
-	}
+		return reject(PPCRecRejection::IMLGeneration);
 
 #if defined(ARCH_X86_64)
 	// emit x64 code
-	bool x64GenerationSuccess = PPCRecompiler_generateX64Code(ppcRecFunc, &ppcImlGenContext);
+	bool x64GenerationSuccess = PPCRecompiler_generateX64Code(ppcRecFunc.get(), &ppcImlGenContext);
 	if (x64GenerationSuccess == false)
-	{
-		delete ppcRecFunc;
-		return nullptr;
-	}
+		return reject(PPCRecRejection::Backend);
 #elif defined(__aarch64__)
-	bool aarch64GenerationSuccess = PPCRecompiler_generateAArch64Code(ppcRecFunc, &ppcImlGenContext);
+	bool aarch64GenerationSuccess = PPCRecompiler_generateAArch64Code(ppcRecFunc.get(), &ppcImlGenContext);
 	if (aarch64GenerationSuccess == false)
-	{
-		delete ppcRecFunc;
-		return nullptr;
-	}
+		return reject(PPCRecRejection::Backend);
 #endif
 	if (ActiveSettings::DumpRecompilerFunctionsEnabled())
 	{
@@ -286,7 +370,7 @@ PPCRecFunction_t* PPCRecompiler_recompileFunction(PPCFunctionBoundaryTracker::PP
 	cemuLog_log(LogType::Force, "[Recompiler] PPC 0x{:08x} -> x64: 0x{:x} Took {:.4}ms | Size {:04x} CodeHash {:08x}", (uint32)ppcRecFunc->ppcAddress, (uint64)(uintptr_t)ppcRecFunc->x86Code, bt.GetElapsedMilliseconds(), ppcRecFunc->x86Size, codeHash);
 #endif
 
-	return ppcRecFunc;
+	return ppcRecFunc.release();
 }
 
 void PPCRecompiler_NativeRegisterAllocatorPass(ppcImlGenContext_t& ppcImlGenContext)
@@ -452,7 +536,16 @@ void PPCRecompiler_recompileAtAddress(uint32 address)
 	s_ppcRecompilerState.recompilerSpinlock.unlock();
 
 	std::vector<std::pair<MPTR, uint32>> functionEntryPoints;
-	PPCRecFunction_t* func = PPCRecompiler_recompileFunction(range, entryAddresses, functionEntryPoints, funcBoundaries);
+	PPCRecFunction_t* func;
+	try
+	{
+		func = PPCRecompiler_recompileFunction(range, entryAddresses, functionEntryPoints, funcBoundaries);
+	}
+	catch (const std::bad_alloc&)
+	{
+		PPCRecompiler_recordRejection(PPCRecRejection::OutOfMemory, range.startAddress, 0);
+		return;
+	}
 	if (!func)
 		return; // recompilation failed
 	if (!PPCRecompiler_makeRecompiledFunctionActive(address, range, func, functionEntryPoints))
@@ -474,9 +567,13 @@ void PPCRecompiler_thread()
 
 	while (true)
 	{
-        if(s_ppcRecompilerState.workerThreadStopSignal)
-            return;
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		{
+			std::unique_lock lock(s_ppcRecompilerState.workerMutex);
+			s_ppcRecompilerState.workerCondition.wait(lock, [] { return s_ppcRecompilerState.workerWakeRequested || s_ppcRecompilerState.workerThreadStopSignal; });
+			s_ppcRecompilerState.workerWakeRequested = false;
+		}
+		if (s_ppcRecompilerState.workerThreadStopSignal)
+			return;
 		// asynchronous recompilation:
 		// 1) take address from queue
 		// 2) check if address is still marked as visited
@@ -748,9 +845,14 @@ std::pair<uintptr_t, uintptr_t> PPCRecompiler_GetHostCodeArea()
 void PPCRecompiler_Shutdown()
 {
     // shut down recompiler thread
-    s_ppcRecompilerState.workerThreadStopSignal = true;
+	{
+		std::unique_lock lock(s_ppcRecompilerState.workerMutex);
+		s_ppcRecompilerState.workerThreadStopSignal = true;
+		s_ppcRecompilerState.workerCondition.notify_one();
+	}
     if(s_ppcRecompilerState.workerThread.joinable())
         s_ppcRecompilerState.workerThread.join();
+	PPCRecompiler_logRejections();
     // clean up queues
     while(!s_ppcRecompilerState.targetQueue.empty())
         s_ppcRecompilerState.targetQueue.pop();

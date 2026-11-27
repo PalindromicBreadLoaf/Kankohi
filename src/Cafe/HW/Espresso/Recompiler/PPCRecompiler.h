@@ -39,6 +39,21 @@ struct PPCRecFunction_t
 
 struct IMLInstruction* PPCRecompilerImlGen_generateNewEmptyInstruction(struct ppcImlGenContext_t* ppcImlGenContext);
 
+// why a function is left to the interpreter
+enum class PPCRecRejection
+{
+	None,
+	OutsideCodeArea,
+	CodeGenArea,
+	AddressFilter,
+	UnsupportedInstruction,
+	IMLGeneration,
+	Backend,
+	CodeArenaFull,
+	OutOfMemory,
+	Count,
+};
+
 struct ppcImlGenContext_t
 {
 	class PPCFunctionBoundaryTracker* boundaryTracker;
@@ -71,6 +86,8 @@ struct ppcImlGenContext_t
 	}tracking;
 	// debug helpers
 	uint32 debug_entryPPCAddress{0};
+	PPCRecRejection rejection{PPCRecRejection::None};
+	uint32 unsupportedInstructionAddress{0};
 
 	~ppcImlGenContext_t()
 	{

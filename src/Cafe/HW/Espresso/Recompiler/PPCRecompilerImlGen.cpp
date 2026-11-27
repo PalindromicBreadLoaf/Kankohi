@@ -1125,7 +1125,7 @@ bool PPCRecompilerImlGen_SRAW(ppcImlGenContext_t* ppcImlGenContext, uint32 opcod
 			genCtx.emitInst().make_r_r_s32(IMLOperation::OP_RIGHT_SHIFT_S, regA, regS, 31); // shift the sign bit into all the bits
 			genCtx.emitInst().make_compare_s32(regA, 0, regCarry, IMLCondition::NEQ);
 		},
-		[&](ppcImlGenContext_t& genCtx) 
+		[&](ppcImlGenContext_t& genCtx)
 		{
 			/* branch not taken, shift size below 32 */
 			genCtx.emitInst().make_r_r_s32(IMLOperation::OP_RIGHT_SHIFT_S, regTmp1, regS, 31); // signMask = input >> 31 (arithmetic shift)
@@ -2314,7 +2314,7 @@ bool PPCRecompiler_decodePPCInstruction(ppcImlGenContext_t* ppcImlGenContext)
 			break;
 		case 183: // STWUX
 			if (!PPCRecompilerImlGen_STORE_INDEXED(ppcImlGenContext, opcode, 32, true, true))
-				unsupportedInstructionFound = true;			
+				unsupportedInstructionFound = true;
 			break;
 		case 200:
 			if (PPCRecompilerImlGen_SUBFZE(ppcImlGenContext, opcode) == false)
@@ -2868,7 +2868,7 @@ void PPCRecompiler_DetermineBasicBlockRange(std::vector<PPCBasicBlockInfo>& basi
 
 	PPCBasicBlockInfo* curBlockInfo = &basicBlockList.emplace_back(currentAddr, entryAddresses);
 
-	uint32 basicBlockStart = currentAddr;	
+	uint32 basicBlockStart = currentAddr;
 	while (currentAddr <= ppcEnd)
 	{
 		curBlockInfo->lastAddress = currentAddr;
@@ -2950,6 +2950,8 @@ bool PPCIMLGen_FillBasicBlock(ppcImlGenContext_t& ppcImlGenContext, PPCBasicBloc
 		if (PPCRecompiler_decodePPCInstruction(&ppcImlGenContext))
 		{
 			cemuLog_logDebug(LogType::Force, "PPCRecompiler: Unsupported instruction at 0x{:08x}", addressOfCurrentInstruction);
+			ppcImlGenContext.rejection = PPCRecRejection::UnsupportedInstruction;
+			ppcImlGenContext.unsupportedInstructionAddress = addressOfCurrentInstruction;
 			ppcImlGenContext.currentOutputSegment = nullptr;
 			return false;
 		}
@@ -3256,6 +3258,6 @@ bool PPCRecompiler_generateIntermediateCode(ppcImlGenContext_t& ppcImlGenContext
 	recRange.ppcSize = ppcRecFunc->ppcSize;
 	ppcRecFunc->list_ranges.push_back(recRange);
 
-	
+
 	return true;
 }

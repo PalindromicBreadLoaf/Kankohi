@@ -1718,6 +1718,7 @@ static bool GenerateAArch64Code(PPCRecFunction_t* PPCRecFunction, ppcImlGenConte
 	PPCRecFunction->x86Size = codeSize;
 	if (!PPCRecFunction->x86Code)
 	{
+		ppcImlGenContext->rejection = PPCRecRejection::CodeArenaFull;
 		static std::atomic_flag s_loggedArenaFull;
 		if (!s_loggedArenaFull.test_and_set())
 			cemuLog_log(LogType::Force, "Recompiler: The code arena is full ({} of {} KiB used). New functions will be interpreted", s_codeArena.GetUsedSize() / 1024, s_codeArena.GetSize() / 1024);
@@ -1740,6 +1741,10 @@ bool PPCRecompiler_generateAArch64Code(struct PPCRecFunction_t* PPCRecFunction, 
 	try
 	{
 		return GenerateAArch64Code(PPCRecFunction, ppcImlGenContext);
+	}
+	catch (const std::bad_alloc&)
+	{
+		throw;
 	}
 	catch (const std::exception& e)
 	{
